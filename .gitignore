@@ -36,8 +36,17 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-example
-
-# generated native folders
+# generated native folders (EAS builds them in the cloud)
 /ios
 /android
+
+# editor
+.vscode/
+.history/
+
+# old template files from reset-project
+/example
+app-example
+
+# NOTE: never ignore /assets — app.json icons, splash, fonts and the
+# notification icon must be committed or the EAS build fails at prebuild.
