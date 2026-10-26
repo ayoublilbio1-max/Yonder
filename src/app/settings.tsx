@@ -1,9 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState, type ComponentProps } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../auth/AuthProvider";
+import { displayName, METHOD_LABEL } from "../auth/types";
 import { AppText } from "../components/AppText";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { FeedbackModal } from "../components/FeedbackModal";
 import { APP_NAME, APP_VERSION, DEVELOPER } from "../constants/app";
 import { useTheme, useThemeMode, type ThemeMode } from "../theme/ThemeProvider";
@@ -22,7 +26,11 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { mode, setMode } = useThemeMode();
+  const { session, signOut } = useAuth();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
+  const user = session?.user;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
@@ -45,6 +53,81 @@ export default function SettingsScreen() {
           { paddingBottom: insets.bottom + 32 },
         ]}
       >
+        {user ? (
+          <>
+            <AppText variant="label" muted style={styles.sectionTitle}>
+              ACCOUNT
+            </AppText>
+            <View
+              style={[
+                styles.group,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.row}>
+                {user.photo ? (
+                  <Image
+                    source={{ uri: user.photo }}
+                    style={styles.avatar}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View
+                    style={[styles.avatar, { backgroundColor: colors.primary }]}
+                  >
+                    <AppText variant="heading" color={colors.onPrimary}>
+                      {displayName(user).charAt(0).toUpperCase()}
+                    </AppText>
+                  </View>
+                )}
+                <View style={styles.rowText}>
+                  <AppText variant="body" weight="semibold">
+                    {displayName(user)}
+                  </AppText>
+                  <AppText variant="bodySmall" muted numberOfLines={1}>
+                    {user.email}
+                  </AppText>
+                  <AppText variant="caption" muted>
+                    Signed in with {METHOD_LABEL[user.method]}
+                  </AppText>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setLogoutOpen(true)}
+                accessibilityRole="button"
+                style={[
+                  styles.row,
+                  {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: colors.border,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.iconCircle,
+                    { backgroundColor: colors.dangerSoft },
+                  ]}
+                >
+                  <Ionicons
+                    name="log-out-outline"
+                    size={20}
+                    color={colors.danger}
+                  />
+                </View>
+                <AppText
+                  variant="body"
+                  weight="medium"
+                  color={colors.danger}
+                  style={styles.rowText}
+                >
+                  Log out
+                </AppText>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
         <AppText variant="label" muted style={styles.sectionTitle}>
           APPEARANCE
         </AppText>
@@ -144,6 +227,18 @@ export default function SettingsScreen() {
         visible={feedbackOpen}
         onClose={() => setFeedbackOpen(false)}
       />
+      <ConfirmModal
+        visible={logoutOpen}
+        title="Log out?"
+        message="You'll go back to the welcome screen. Your account stays saved on this phone."
+        confirmLabel="Log out"
+        icon="log-out-outline"
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={() => {
+          setLogoutOpen(false);
+          signOut();
+        }}
+      />
     </View>
   );
 }
@@ -190,6 +285,13 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconCircle: {
     width: 36,

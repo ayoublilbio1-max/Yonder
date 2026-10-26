@@ -8,6 +8,20 @@ export const brand = {
   boost: "#10c281",
 } as const;
 
+// Same in light and dark: text and buttons that sit on top of a photo,
+// and the official sign-in button colours.
+const onPhotoTokens = {
+  onPhoto: "#FFFFFF",
+  onPhotoMuted: "rgba(255, 255, 255, 0.8)",
+  photoScrimTop: "rgba(0, 0, 0, 0.45)",
+  photoScrimMiddle: "rgba(0, 0, 0, 0.15)",
+  photoScrimBottom: "rgba(0, 0, 0, 0.9)",
+  googleButton: "#FFFFFF",
+  onGoogleButton: "#1F1F1F",
+  appleButton: "#000000",
+  onAppleButton: "#FFFFFF",
+} as const;
+
 export type ThemeColors = {
   // surfaces
   bg: string;
@@ -41,6 +55,16 @@ export type ThemeColors = {
   skeleton: string;
   toastBg: string;
   toastText: string;
+  // on top of photos + sign-in buttons
+  onPhoto: string;
+  onPhotoMuted: string;
+  photoScrimTop: string;
+  photoScrimMiddle: string;
+  photoScrimBottom: string;
+  googleButton: string;
+  onGoogleButton: string;
+  appleButton: string;
+  onAppleButton: string;
 };
 
 export const lightColors: ThemeColors = {
@@ -76,6 +100,8 @@ export const lightColors: ThemeColors = {
   skeleton: "#F1E7EB",
   toastBg: "#1F1218",
   toastText: "#FFFFFF",
+
+  ...onPhotoTokens,
 };
 
 export const darkColors: ThemeColors = {
@@ -111,4 +137,6 @@ export const darkColors: ThemeColors = {
   skeleton: "#2A1A22",
   toastBg: "#F6E9EF",
   toastText: "#1F1218",
+
+  ...onPhotoTokens,
 };

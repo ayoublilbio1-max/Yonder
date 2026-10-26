@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { useRouter, type Href } from "expo-router";
-import { type ComponentType } from "react";
+import { useEffect, type ComponentType } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeProvider";
@@ -43,20 +43,20 @@ type TabBarProps = {
   };
 };
 
-let loggedProps = false;
-
 export function TabBar(props: TabBarProps) {
   const { state, navigation } = props;
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  if (__DEV__ && !loggedProps) {
-    loggedProps = true;
-    console.log(
-      `[tabs] tab bar props: ${Object.keys(props).join(", ")} · navigation.emit=${typeof navigation?.emit}`,
-    );
-  }
+  const propKeys = Object.keys(props).join(", ");
+  const emitType = typeof navigation?.emit;
+  useEffect(() => {
+    if (__DEV__)
+      console.log(
+        `[tabs] tab bar props: ${propKeys} · navigation.emit=${emitType}`,
+      );
+  }, [propKeys, emitType]);
 
   return (
     <View

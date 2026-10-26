@@ -1,5 +1,11 @@
 import * as NavigationBar from "expo-navigation-bar";
-import { Stack } from "expo-router";
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+  type Href,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -7,6 +13,7 @@ import { useEffect, useRef } from "react";
 import { AppState, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { ToastProvider } from "../components/Toast";
 import { HIDE_ANDROID_NAV_BAR } from "../constants/app";
 import {
@@ -46,7 +53,8 @@ function setNavBarButtons(style: "light" | "dark"): Promise<string> {
   );
 }
 
-// Splash: keep it up until the first data is loaded, then fade it out ONCE.
+// Splash: keep it up until the saved theme + session are loaded and the first screen is chosen,
+// then fade it out ONCE.
 const APP_START = Date.now();
 SplashScreen.preventAutoHideAsync().catch(() => {});
 SplashScreen.setOptions({ duration: 300, fade: true });
@@ -56,7 +64,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
         <ThemeProvider>
-          <RootNavigator />
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
         </ThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
@@ -66,12 +76,44 @@ export default function RootLayout() {
 function RootNavigator() {
   const colors = useTheme();
   const isDark = useIsDark();
-  const { ready } = useThemeMode();
+  const { ready: themeReady } = useThemeMode();
+  const { ready: authReady, session } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const navState = useRootNavigationState();
   const splashHidden = useRef(false);
 
-  // Hide the splash once only, when the saved theme (first data) is loaded.
+  const ready = themeReady && authReady;
+  const navMounted = Boolean(navState?.key);
+
+  // Send the user to the right place:
+  // signed out → welcome · signed in but not onboarded → onboarding · onboarded → the app.
   useEffect(() => {
-    if (!ready || splashHidden.current) return;
+    if (!ready || !navMounted) return; // never navigate before the navigator is mounted
+    const group = segments[0] as string | undefined;
+    const inAuth = group === "(auth)";
+    const inOnboarding = group === "(onboarding)";
+
+    let target: Href | null = null;
+    if (!session) {
+      if (!inAuth) target = "/welcome" as Href;
+    } else if (!session.onboarded) {
+      if (!inOnboarding) target = "/start" as Href;
+    } else if (inAuth || inOnboarding) {
+      target = "/" as Href;
+    }
+
+    if (target) {
+      // Clear the history first so Back can't return to the previous section.
+      if (typeof router.canDismiss === "function" && router.canDismiss())
+        router.dismissAll();
+      router.replace(target);
+      if (__DEV__)
+        console.log(`[route] ${group ?? "(root)"} → ${String(target)}`);
+    }
+
+    // Hide the splash once only, right after the first screen is chosen.
+    if (splashHidden.current) return;
     splashHidden.current = true;
     SplashScreen.hideAsync()
       .then(() => {
@@ -81,7 +123,7 @@ function RootNavigator() {
       .catch((e) => {
         if (__DEV__) console.log("[splash] hide failed", String(e));
       });
-  }, [ready]);
+  }, [ready, navMounted, session, segments, router]);
 
   // Android bottom navigation bar: hidden or shown, from HIDE_ANDROID_NAV_BAR in constants/app.ts.
   // Re-applied when the app comes back to the foreground, because Android can change it.
@@ -134,6 +176,11 @@ function RootNavigator() {
         }}
       >
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
+        <Stack.Screen
+          name="(onboarding)"
+          options={{ animation: "fade", gestureEnabled: false }}
+        />
         <Stack.Screen name="settings" />
       </Stack>
     </ToastProvider>
