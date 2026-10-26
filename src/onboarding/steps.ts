@@ -1,7 +1,8 @@
 import type { Href } from "expo-router";
+import { MIN_PHOTOS } from "./options";
 import type { ProfileDraft } from "./types";
 
-// Order of the onboarding questions. Part 2b adds more ids here.
+// Order of the onboarding questions.
 export const STEP_IDS = [
   "gender",
   "name",
@@ -13,6 +14,14 @@ export const STEP_IDS = [
   "smoking",
   "drinking",
   "religion",
+  "profession",
+  "education",
+  "nationality",
+  "interests",
+  "personality",
+  "bio",
+  "photos",
+  "phone",
 ] as const;
 
 export type StepId = (typeof STEP_IDS)[number];
@@ -40,22 +49,30 @@ export function stepProgress(id: StepId) {
   return (STEP_IDS.indexOf(id) + 1) / (STEP_IDS.length + 1);
 }
 
-const ANSWER_OF: Record<StepId, keyof ProfileDraft> = {
-  gender: "gender",
-  name: "firstName",
-  birthday: "birthday",
-  intent: "intent",
-  marital: "maritalStatus",
-  children: "hasChildren",
-  height: "heightCm",
-  smoking: "smoking",
-  drinking: "drinking",
-  religion: "religion",
+// When is a question answered? (skipped answers count as answered)
+const ANSWERED: Record<StepId, (d: ProfileDraft) => boolean> = {
+  gender: (d) => Boolean(d.gender),
+  name: (d) => Boolean(d.firstName),
+  birthday: (d) => Boolean(d.birthday),
+  intent: (d) => Boolean(d.intent),
+  marital: (d) => Boolean(d.maritalStatus),
+  children: (d) => Boolean(d.hasChildren),
+  height: (d) => d.heightCm != null,
+  smoking: (d) => Boolean(d.smoking),
+  drinking: (d) => Boolean(d.drinking),
+  religion: (d) => Boolean(d.religion),
+  profession: (d) => Boolean(d.profession),
+  education: (d) => Boolean(d.education),
+  nationality: (d) => (d.nationalities?.length ?? 0) > 0,
+  interests: (d) => d.interests !== undefined,
+  personality: (d) => d.personality !== undefined,
+  bio: (d) => d.bio !== undefined,
+  photos: (d) => (d.photos?.length ?? 0) >= MIN_PHOTOS,
+  phone: (d) => d.phoneVerified === true,
 };
 
 export function isAnswered(draft: ProfileDraft, id: StepId) {
-  const value = draft[ANSWER_OF[id]];
-  return value !== undefined && value !== "";
+  return ANSWERED[id](draft);
 }
 
 export function firstUnanswered(draft: ProfileDraft): StepId | null {

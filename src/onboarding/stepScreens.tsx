@@ -1,14 +1,13 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState, type ComponentType } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { useAuth } from '../auth/AuthProvider';
-import { AppButton } from '../components/AppButton';
-import { AppText } from '../components/AppText';
-import { AppTextInput } from '../components/AppTextInput';
-import { useTheme } from '../theme/ThemeProvider';
-import { useOnboarding } from './OnboardingProvider';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useState, type ComponentType } from "react";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { useAuth } from "../auth/AuthProvider";
+import { AppButton } from "../components/AppButton";
+import { AppText } from "../components/AppText";
+import { AppTextInput } from "../components/AppTextInput";
+import { useTheme } from "../theme/ThemeProvider";
+import { useOnboarding } from "./OnboardingProvider";
+import { OptionCards, OptionList } from "./OptionList";
 import {
   CHILDREN_OPTIONS,
   cmToFeet,
@@ -20,45 +19,45 @@ import {
   MONTHS,
   RELIGION_OPTIONS,
   SMOKING_OPTIONS,
-} from './options';
-import { OptionCards, OptionList } from './OptionList';
-import { StepLayout } from './StepLayout';
-import { nextHref, type StepId } from './steps';
-import type { Gender } from './types';
-import { WheelColumn } from './WheelColumn';
-
-// Go to the next question after a short pause, so the tester sees the selection.
-function useAdvance(id: StepId) {
-  const router = useRouter();
-  const busy = useRef(false);
-  return useCallback(
-    (delayMs = 160) => {
-      if (busy.current) return;
-      busy.current = true;
-      Haptics.selectionAsync().catch(() => {});
-      setTimeout(() => {
-        router.push(nextHref(id));
-        busy.current = false;
-      }, delayMs);
-    },
-    [router, id],
-  );
-}
+} from "./options";
+import { PhoneStep } from "./PhoneStep";
+import { PhotosStep } from "./PhotosStep";
+import { StepLayout } from "./StepLayout";
+import type { StepId } from "./steps";
+import {
+  BioStep,
+  EducationStep,
+  InterestsStep,
+  NationalityStep,
+  PersonalityStep,
+  ProfessionStep,
+} from "./stepScreensMore";
+import type { Gender } from "./types";
+import { useAdvance } from "./useAdvance";
+import { WheelColumn } from "./WheelColumn";
 
 // ───────────────────────── gender ─────────────────────────
 
 function GenderStep() {
   const colors = useTheme();
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('gender');
+  const advance = useAdvance("gender");
 
-  const choices: { value: Gender; label: string; icon: 'man-outline' | 'woman-outline' }[] = [
-    { value: 'man', label: 'I’m a man', icon: 'man-outline' },
-    { value: 'woman', label: 'I’m a woman', icon: 'woman-outline' },
+  const choices: {
+    value: Gender;
+    label: string;
+    icon: "man-outline" | "woman-outline";
+  }[] = [
+    { value: "man", label: "I’m a man", icon: "man-outline" },
+    { value: "woman", label: "I’m a woman", icon: "woman-outline" },
   ];
 
   return (
-    <StepLayout stepId="gender" title="Are you a man or a woman?" subtitle="We’ll show you people who are looking for you.">
+    <StepLayout
+      stepId="gender"
+      title="Are you a man or a woman?"
+      subtitle="We’ll show you people who are looking for you."
+    >
       <View style={styles.genderRow}>
         {choices.map((c) => {
           const selected = draft.gender === c.value;
@@ -80,7 +79,12 @@ function GenderStep() {
                 },
               ]}
             >
-              <View style={[styles.genderIcon, { backgroundColor: colors.primarySoft }]}>
+              <View
+                style={[
+                  styles.genderIcon,
+                  { backgroundColor: colors.primarySoft },
+                ]}
+              >
                 <Ionicons name={c.icon} size={44} color={colors.primary} />
               </View>
               <AppText variant="body" weight="semibold">
@@ -102,15 +106,15 @@ const NAME_PATTERN = /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ '’-]*$/;
 function NameStep() {
   const { session } = useAuth();
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('name');
-  const fromAccount = session?.user.name.trim().split(/\s+/)[0] ?? '';
+  const advance = useAdvance("name");
+  const fromAccount = session?.user.name.trim().split(/\s+/)[0] ?? "";
   const [name, setName] = useState(draft.firstName ?? fromAccount);
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
-    const clean = name.trim().replace(/\s+/g, ' ');
-    if (clean.length < 2) return setError('Enter at least 2 letters.');
-    if (!NAME_PATTERN.test(clean)) return setError('Use letters only.');
+    const clean = name.trim().replace(/\s+/g, " ");
+    if (clean.length < 2) return setError("Enter at least 2 letters.");
+    if (!NAME_PATTERN.test(clean)) return setError("Use letters only.");
     setError(null);
     update({ firstName: clean });
     advance(0);
@@ -121,7 +125,13 @@ function NameStep() {
       stepId="name"
       title="What’s your first name?"
       subtitle="This is how it appears on your profile."
-      footer={<AppButton label="Continue" onPress={submit} disabled={name.trim().length < 2} />}
+      footer={
+        <AppButton
+          label="Continue"
+          onPress={submit}
+          disabled={name.trim().length < 2}
+        />
+      }
     >
       <AppTextInput
         label="First name"
@@ -153,20 +163,27 @@ function daysInMonth(year: number, monthIndex: number) {
 
 function ageOn(year: number, monthIndex: number, day: number, now: Date) {
   let age = now.getFullYear() - year;
-  if (now.getMonth() < monthIndex || (now.getMonth() === monthIndex && now.getDate() < day)) age -= 1;
+  if (
+    now.getMonth() < monthIndex ||
+    (now.getMonth() === monthIndex && now.getDate() < day)
+  )
+    age -= 1;
   return age;
 }
 
 function BirthdayStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('birthday');
+  const advance = useAdvance("birthday");
   const colors = useTheme();
 
   const now = new Date();
   const thisYear = now.getFullYear();
-  const years = Array.from({ length: MAX_AGE - MIN_AGE + 1 }, (_, i) => thisYear - MAX_AGE + i);
+  const years = Array.from(
+    { length: MAX_AGE - MIN_AGE + 1 },
+    (_, i) => thisYear - MAX_AGE + i,
+  );
 
-  const saved = draft.birthday?.split('-').map(Number);
+  const saved = draft.birthday?.split("-").map(Number);
   const [year, setYear] = useState(saved?.[0] ?? thisYear - 25);
   const [month, setMonth] = useState(saved ? saved[1] - 1 : 5);
   const [day, setDay] = useState(saved?.[2] ?? 15);
@@ -178,7 +195,7 @@ function BirthdayStep() {
 
   const submit = () => {
     if (tooYoung) return;
-    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+    const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
     if (__DEV__) console.log(`[onboarding] birthday ${iso} · age ${age}`);
     update({ birthday: iso });
     advance(0);
@@ -189,10 +206,18 @@ function BirthdayStep() {
       stepId="birthday"
       title="When were you born?"
       subtitle="Only your age is shown on your profile."
-      footer={<AppButton label="Continue" onPress={submit} disabled={tooYoung} />}
+      footer={
+        <AppButton label="Continue" onPress={submit} disabled={tooYoung} />
+      }
     >
       <View style={styles.wheels}>
-        <WheelColumn label="Month" width={92} items={MONTHS} index={month} onChange={setMonth} />
+        <WheelColumn
+          label="Month"
+          width={92}
+          items={MONTHS}
+          index={month}
+          onChange={setMonth}
+        />
         <WheelColumn
           key={`days-${days}`}
           label="Day"
@@ -209,8 +234,15 @@ function BirthdayStep() {
           onChange={(i) => setYear(years[i])}
         />
       </View>
-      <AppText variant="body" weight="medium" align="center" color={tooYoung ? colors.danger : colors.textMuted}>
-        {tooYoung ? `You must be ${MIN_AGE} or older to use Yonder.` : `You’re ${age}`}
+      <AppText
+        variant="body"
+        weight="medium"
+        align="center"
+        color={tooYoung ? colors.danger : colors.textMuted}
+      >
+        {tooYoung
+          ? `You must be ${MIN_AGE} or older to use Yonder.`
+          : `You’re ${age}`}
       </AppText>
     </StepLayout>
   );
@@ -220,9 +252,13 @@ function BirthdayStep() {
 
 function IntentStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('intent');
+  const advance = useAdvance("intent");
   return (
-    <StepLayout stepId="intent" title="What brings you to Yonder?" subtitle="We’ll show you people who want the same.">
+    <StepLayout
+      stepId="intent"
+      title="What brings you to Yonder?"
+      subtitle="We’ll show you people who want the same."
+    >
       <OptionCards
         options={INTENT_OPTIONS}
         selected={draft.intent}
@@ -237,7 +273,7 @@ function IntentStep() {
 
 function MaritalStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('marital');
+  const advance = useAdvance("marital");
   return (
     <StepLayout stepId="marital" title="What’s your marital status?">
       <OptionList
@@ -254,7 +290,7 @@ function MaritalStep() {
 
 function ChildrenStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('children');
+  const advance = useAdvance("children");
   return (
     <StepLayout stepId="children" title="Do you have children?">
       <OptionList
@@ -271,7 +307,7 @@ function ChildrenStep() {
 
 function SmokingStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('smoking');
+  const advance = useAdvance("smoking");
   return (
     <StepLayout stepId="smoking" title="Do you smoke?">
       <OptionList
@@ -288,7 +324,7 @@ function SmokingStep() {
 
 function DrinkingStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('drinking');
+  const advance = useAdvance("drinking");
   return (
     <StepLayout stepId="drinking" title="Do you drink alcohol?">
       <OptionList
@@ -305,7 +341,7 @@ function DrinkingStep() {
 
 function ReligionStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('religion');
+  const advance = useAdvance("religion");
   return (
     <StepLayout
       stepId="religion"
@@ -316,7 +352,7 @@ function ReligionStep() {
           label="Skip"
           variant="secondary"
           onPress={() => {
-            update({ religion: 'prefer_not' });
+            update({ religion: "prefer_not" });
             advance(0);
           }}
         />
@@ -337,14 +373,17 @@ function ReligionStep() {
 // ───────────────────────── height ─────────────────────────
 
 const HEIGHT_ROW = 58;
-const HEIGHTS = Array.from({ length: HEIGHT_MAX_CM - HEIGHT_MIN_CM + 1 }, (_, i) => HEIGHT_MIN_CM + i);
+const HEIGHTS = Array.from(
+  { length: HEIGHT_MAX_CM - HEIGHT_MIN_CM + 1 },
+  (_, i) => HEIGHT_MIN_CM + i,
+);
 
 function HeightStep() {
   const colors = useTheme();
   const { draft, update } = useOnboarding();
-  const advance = useAdvance('height');
+  const advance = useAdvance("height");
 
-  const start = draft.heightCm ?? (draft.gender === 'man' ? 178 : 165);
+  const start = draft.heightCm ?? (draft.gender === "man" ? 178 : 165);
   const startIndex = Math.max(0, HEIGHTS.indexOf(start) - 3);
 
   return (
@@ -353,7 +392,11 @@ function HeightStep() {
         data={HEIGHTS}
         keyExtractor={(cm) => String(cm)}
         initialScrollIndex={startIndex}
-        getItemLayout={(_, index) => ({ length: HEIGHT_ROW, offset: HEIGHT_ROW * index, index })}
+        getItemLayout={(_, index) => ({
+          length: HEIGHT_ROW,
+          offset: HEIGHT_ROW * index,
+          index,
+        })}
         showsVerticalScrollIndicator={false}
         renderItem={({ item: cm }) => {
           const selected = draft.heightCm === cm;
@@ -365,13 +408,28 @@ function HeightStep() {
               }}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
-              style={({ pressed }) => [styles.heightRow, { opacity: pressed ? 0.6 : 1 }]}
+              style={({ pressed }) => [
+                styles.heightRow,
+                { opacity: pressed ? 0.6 : 1 },
+              ]}
             >
-              <AppText variant="body" weight={selected ? 'bold' : 'semibold'} color={selected ? colors.primary : colors.text}>
-                {cm} cm <AppText variant="body" color={selected ? colors.primary : colors.textSubtle}>·</AppText>{' '}
+              <AppText
+                variant="body"
+                weight={selected ? "bold" : "semibold"}
+                color={selected ? colors.primary : colors.text}
+              >
+                {cm} cm{" "}
+                <AppText
+                  variant="body"
+                  color={selected ? colors.primary : colors.textSubtle}
+                >
+                  ·
+                </AppText>{" "}
                 {cmToFeet(cm)}
               </AppText>
-              {selected ? <Ionicons name="checkmark" size={22} color={colors.primary} /> : null}
+              {selected ? (
+                <Ionicons name="checkmark" size={22} color={colors.primary} />
+              ) : null}
             </Pressable>
           );
         }}
@@ -393,16 +451,24 @@ export const STEP_SCREENS: Record<StepId, ComponentType> = {
   smoking: SmokingStep,
   drinking: DrinkingStep,
   religion: ReligionStep,
+  profession: ProfessionStep,
+  education: EducationStep,
+  nationality: NationalityStep,
+  interests: InterestsStep,
+  personality: PersonalityStep,
+  bio: BioStep,
+  photos: PhotosStep,
+  phone: PhoneStep,
 };
 
 const styles = StyleSheet.create({
   genderRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 14,
   },
   genderCard: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 14,
     borderWidth: 1.5,
     borderRadius: 20,
@@ -412,19 +478,19 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   wheels: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 8,
     marginBottom: 16,
   },
   heightRow: {
     height: HEIGHT_ROW,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 });

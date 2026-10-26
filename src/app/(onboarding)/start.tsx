@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useRef } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/AuthProvider";
@@ -24,6 +25,7 @@ export default function OnboardingStartScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const { loaded, draft } = useOnboarding();
+  const opening = useRef(false); // ignores a double tap (only one screen opens)
 
   if (!session || !loaded) return null;
 
@@ -32,6 +34,11 @@ export default function OnboardingStartScreen() {
   const name = draft.firstName ?? displayName(session.user);
 
   const start = () => {
+    if (opening.current) return;
+    opening.current = true;
+    setTimeout(() => {
+      opening.current = false;
+    }, 800);
     const next = firstUnanswered(draft);
     if (__DEV__)
       console.log(

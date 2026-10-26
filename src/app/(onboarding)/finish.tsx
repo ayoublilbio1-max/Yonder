@@ -1,36 +1,36 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
-import { useState, type ComponentProps } from "react";
-import { StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../auth/AuthProvider";
-import { AppButton } from "../../components/AppButton";
-import { AppText } from "../../components/AppText";
-import { useOnboarding } from "../../onboarding/OnboardingProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useState, type ComponentProps } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../auth/AuthProvider';
+import { AppButton } from '../../components/AppButton';
+import { AppText } from '../../components/AppText';
+import { countryByCode, flagOf } from '../../onboarding/countries';
+import { ALL_INTEREST_CHIPS, chipLabels, PERSONALITY_TRAITS } from '../../onboarding/interests';
+import { useOnboarding } from '../../onboarding/OnboardingProvider';
 import {
-    cmToFeet,
-    DRINKING_OPTIONS,
-    INTENT_OPTIONS,
-    labelOf,
-    MARITAL_OPTIONS,
-    RELIGION_OPTIONS,
-    SMOKING_OPTIONS,
-} from "../../onboarding/options";
-import { firstUnanswered, stepHref } from "../../onboarding/steps";
-import { useTheme } from "../../theme/ThemeProvider";
+  cmToFeet,
+  DRINKING_OPTIONS,
+  EDUCATION_OPTIONS,
+  INTENT_OPTIONS,
+  labelOf,
+  MARITAL_OPTIONS,
+  RELIGION_OPTIONS,
+  SMOKING_OPTIONS,
+} from '../../onboarding/options';
+import { firstUnanswered, stepHref } from '../../onboarding/steps';
+import { useTheme } from '../../theme/ThemeProvider';
 
-type SummaryRow = {
-  icon: ComponentProps<typeof Ionicons>["name"];
-  text: string;
-};
+type SummaryRow = { icon: ComponentProps<typeof Ionicons>['name']; text: string };
 
 function ageFrom(iso: string | undefined) {
   if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y, m, d] = iso.split('-').map(Number);
   const now = new Date();
   let age = now.getFullYear() - y;
-  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d))
-    age -= 1;
+  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) age -= 1;
   return age;
 }
 
@@ -47,80 +47,65 @@ export default function OnboardingFinishScreen() {
 
   const missing = firstUnanswered(draft);
   const age = ageFrom(draft.birthday);
+  const mainPhoto = draft.photos?.[0];
+  const interests = chipLabels(ALL_INTEREST_CHIPS, draft.interests);
+  const traits = chipLabels(PERSONALITY_TRAITS, draft.personality);
+  const nationalities = (draft.nationalities ?? [])
+    .map((code) => countryByCode(code))
+    .filter((c) => c !== undefined)
+    .map((c) => `${flagOf(c.code)} ${c.nationality}`)
+    .join(' · ');
 
   const allRows: SummaryRow[] = [
+    { icon: 'heart-outline', text: labelOf(INTENT_OPTIONS, draft.intent) },
+    { icon: 'briefcase-outline', text: draft.profession ?? '' },
+    { icon: 'school-outline', text: labelOf(EDUCATION_OPTIONS, draft.education) },
+    { icon: 'flag-outline', text: nationalities },
+    { icon: 'ribbon-outline', text: labelOf(MARITAL_OPTIONS, draft.maritalStatus) },
+    { icon: 'resize-outline', text: draft.heightCm ? `${draft.heightCm} cm · ${cmToFeet(draft.heightCm)}` : '' },
+    { icon: 'flame-outline', text: draft.smoking ? `Smoking: ${labelOf(SMOKING_OPTIONS, draft.smoking)}` : '' },
+    { icon: 'wine-outline', text: draft.drinking ? `Drinking: ${labelOf(DRINKING_OPTIONS, draft.drinking)}` : '' },
     {
-      icon: "person-outline",
-      text: `${draft.firstName ?? ""}${age != null ? `, ${age}` : ""}`,
+      icon: 'sparkles-outline',
+      text: draft.religion && draft.religion !== 'prefer_not' ? labelOf(RELIGION_OPTIONS, draft.religion) : '',
     },
-    { icon: "heart-outline", text: labelOf(INTENT_OPTIONS, draft.intent) },
-    {
-      icon: "ribbon-outline",
-      text: labelOf(MARITAL_OPTIONS, draft.maritalStatus),
-    },
-    {
-      icon: "resize-outline",
-      text: draft.heightCm
-        ? `${draft.heightCm} cm · ${cmToFeet(draft.heightCm)}`
-        : "",
-    },
-    {
-      icon: "flame-outline",
-      text: draft.smoking
-        ? `Smoking: ${labelOf(SMOKING_OPTIONS, draft.smoking)}`
-        : "",
-    },
-    {
-      icon: "wine-outline",
-      text: draft.drinking
-        ? `Drinking: ${labelOf(DRINKING_OPTIONS, draft.drinking)}`
-        : "",
-    },
-    {
-      icon: "sparkles-outline",
-      text:
-        draft.religion && draft.religion !== "prefer_not"
-          ? labelOf(RELIGION_OPTIONS, draft.religion)
-          : "",
-    },
+    { icon: 'shield-checkmark-outline', text: draft.phoneVerified ? 'Phone verified' : '' },
   ];
   const rows = allRows.filter((r) => r.text);
 
   const finish = async () => {
     if (busy) return;
     setBusy(true);
-    if (__DEV__) console.log("[onboarding] finished", JSON.stringify(draft));
+    if (__DEV__) console.log('[onboarding] finished', JSON.stringify({ ...draft, photos: draft.photos?.length ?? 0 }));
     await completeOnboarding(); // the root layout moves on to the app
   };
 
   return (
-    <View
-      style={[
-        styles.screen,
-        {
-          backgroundColor: colors.bg,
-          paddingTop: insets.top + 24,
-          paddingBottom: insets.bottom + 20,
-        },
-      ]}
-    >
-      <View style={styles.body}>
-        <View style={[styles.check, { backgroundColor: colors.primarySoft }]}>
-          <Ionicons name="checkmark" size={44} color={colors.primary} />
-        </View>
+    <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 16 }]}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {mainPhoto ? (
+          <Image source={{ uri: mainPhoto }} style={[styles.avatar, { borderColor: colors.primary }]} contentFit="cover" />
+        ) : (
+          <View style={[styles.avatar, styles.check, { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
+            <Ionicons name="checkmark" size={44} color={colors.primary} />
+          </View>
+        )}
+
         <AppText variant="display">
-          Nice to meet you, {draft.firstName ?? "there"}!
+          {draft.firstName ?? 'You'}
+          {age != null ? `, ${age}` : ''}
         </AppText>
         <AppText variant="body" muted>
-          Here’s your profile so far. You can change it any time.
+          Your profile is ready. You can change it any time.
         </AppText>
 
-        <View
-          style={[
-            styles.summary,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        {draft.bio ? (
+          <AppText variant="body">
+            “{draft.bio}”
+          </AppText>
+        ) : null}
+
+        <View style={[styles.summary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {rows.map((r) => (
             <View key={r.icon} style={styles.summaryRow}>
               <Ionicons name={r.icon} size={20} color={colors.primary} />
@@ -130,20 +115,25 @@ export default function OnboardingFinishScreen() {
             </View>
           ))}
         </View>
-      </View>
 
-      <View style={styles.actions}>
+        {interests.length || traits.length ? (
+          <View style={styles.chips}>
+            {[...traits, ...interests].map((c) => (
+              <View key={c.key} style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                <AppText variant="caption">
+                  {c.emoji} {c.label}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
+
+      <View style={[styles.actions, { paddingBottom: insets.bottom + 20 }]}>
         {missing ? (
-          <AppButton
-            label="Answer the missing question"
-            onPress={() => router.push(stepHref(missing))}
-          />
+          <AppButton label="Answer the missing question" onPress={() => router.push(stepHref(missing))} />
         ) : (
-          <AppButton
-            label={busy ? "Please wait…" : "Start exploring"}
-            onPress={finish}
-            disabled={busy}
-          />
+          <AppButton label={busy ? 'Please wait…' : 'Start exploring'} onPress={finish} disabled={busy} />
         )}
       </View>
     </View>
@@ -153,20 +143,22 @@ export default function OnboardingFinishScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingHorizontal: 24,
   },
-  body: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 12,
+  content: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    gap: 10,
+  },
+  avatar: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 3,
+    marginBottom: 10,
   },
   check: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summary: {
     borderRadius: 16,
@@ -176,14 +168,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   flex: {
     flex: 1,
   },
   actions: {
-    gap: 10,
+    paddingHorizontal: 24,
+    paddingTop: 8,
   },
 });
