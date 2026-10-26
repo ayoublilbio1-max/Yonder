@@ -20,6 +20,12 @@ const onPhotoTokens = {
   onGoogleButton: "#1F1F1F",
   appleButton: "#000000",
   onAppleButton: "#FFFFFF",
+  // swipe deck
+  superLike: "#2F9BFF",
+  rewind: "#F5B300",
+  verified: "#2F9BFF",
+  stampLike: "#10c281",
+  stampNope: "#FF4458",
 } as const;
 
 export type ThemeColors = {
@@ -65,6 +71,12 @@ export type ThemeColors = {
   onGoogleButton: string;
   appleButton: string;
   onAppleButton: string;
+  // swipe deck
+  superLike: string;
+  rewind: string;
+  verified: string;
+  stampLike: string;
+  stampNope: string;
 };
 
 export const lightColors: ThemeColors = {

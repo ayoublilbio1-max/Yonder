@@ -9,10 +9,10 @@ import { useTheme } from "../theme/ThemeProvider";
 import { ChipGroup } from "./ChipGroup";
 import { COUNTRIES_BY_NATIONALITY, flagOf } from "./countries";
 import {
-    INTEREST_GROUPS,
-    MAX_INTERESTS,
-    MAX_TRAITS,
-    PERSONALITY_TRAITS,
+  INTEREST_GROUPS,
+  MAX_INTERESTS,
+  MAX_TRAITS,
+  PERSONALITY_TRAITS,
 } from "./interests";
 import { useOnboarding } from "./OnboardingProvider";
 import { OptionList } from "./OptionList";
@@ -66,7 +66,8 @@ export function ProfessionStep() {
         selected={draft.profession ? [draft.profession] : []}
         onPress={choose}
         onCustom={(text) => choose(text.slice(0, 40))}
-        placeholder="Search jobs"
+        customHint="Not in the list? Tap here and write your own."
+        placeholder="Search or write your job"
       />
     </StepLayout>
   );
