@@ -26,6 +26,10 @@ const onPhotoTokens = {
   verified: "#2F9BFF",
   stampLike: "#10c281",
   stampNope: "#FF4458",
+  gold: "#E2A400",
+  goldSoft: "rgba(226, 164, 0, 0.16)",
+  online: "#22C55E",
+  viewerBg: "#000000",
 } as const;
 
 export type ThemeColors = {
@@ -77,6 +81,10 @@ export type ThemeColors = {
   verified: string;
   stampLike: string;
   stampNope: string;
+  gold: string;
+  goldSoft: string;
+  online: string;
+  viewerBg: string;
 };
 
 export const lightColors: ThemeColors = {

@@ -1,8 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, {
@@ -17,11 +16,21 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { AppText } from "../components/AppText";
 import { Skeleton } from "../components/Skeleton";
-import { INTENT_ICON, INTENT_LABEL, mediaOf } from "../profiles/data";
+import { mainPhotoUri, mediaOf } from "../profiles/data";
+import {
+  activityLabel,
+  isGold,
+  isJustJoined,
+  isLocked,
+  isRecentlyActive,
+} from "../profiles/extras";
 import { distanceKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
 import { useTheme } from "../theme/ThemeProvider";
 import type { SwipeAction } from "./SwipeProvider";
+
+// Profile card at the top of the Swipe page: swipe left / right, tap to open the photos.
+// Vertical drags are left to the page so it can scroll (super like is a button only).
 
 export type FlingFn = (action: SwipeAction) => void;
 
@@ -30,11 +39,11 @@ type Props = {
   isTop: boolean;
   progress: SharedValue<number>; // 0..1 how far the top card has moved (grows the card under it)
   onSwiped: (action: SwipeAction) => void;
+  onOpen?: () => void; // tap → full-screen media
   registerFling?: (fn: FlingFn | null) => void; // lets the buttons swipe the top card
 };
 
 const SWIPE_X = 110; // px past which a drag counts as a swipe
-const SWIPE_UP = 140;
 const FLING_VELOCITY = 900;
 const DURATION = 240;
 
@@ -43,13 +52,14 @@ export function SwipeCard({
   isTop,
   progress,
   onSwiped,
+  onOpen,
   registerFling,
 }: Props) {
   const colors = useTheme();
   const { width, height } = useWindowDimensions();
-  const media = useMemo(() => mediaOf(profile), [profile]);
-  const [index, setIndex] = useState(0);
-  const [loadedUri, setLoadedUri] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const locked = isLocked(profile);
+  const mediaCount = mediaOf(profile).length;
 
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
@@ -58,7 +68,7 @@ export function SwipeCard({
     "worklet";
     const toX =
       action === "like" ? width * 1.6 : action === "pass" ? -width * 1.6 : 0;
-    const toY = action === "superlike" ? -height * 1.3 : ty.get();
+    const toY = action === "superlike" ? -height * 1.2 : ty.get();
     progress.set(withTiming(1, { duration: DURATION }));
     tx.set(withTiming(toX, { duration: DURATION }));
     ty.set(
@@ -78,17 +88,12 @@ export function SwipeCard({
   const pan = usePanGesture({
     enabled: isTop,
     activeOffsetX: [-12, 12],
-    activeOffsetY: [-12, 12],
+    failOffsetY: [-10, 10], // a vertical drag scrolls the page instead
     onUpdate: (e) => {
       "worklet";
       tx.set(e.translationX);
-      ty.set(e.translationY);
-      progress.set(
-        Math.min(
-          1,
-          Math.max(Math.abs(e.translationX), -e.translationY) / (width * 0.5),
-        ),
-      );
+      ty.set(e.translationY * 0.3);
+      progress.set(Math.min(1, Math.abs(e.translationX) / (width * 0.5)));
     },
     onDeactivate: (e) => {
       "worklet";
@@ -96,7 +101,6 @@ export function SwipeCard({
         fling("like");
       else if (e.translationX < -SWIPE_X || e.velocityX < -FLING_VELOCITY)
         fling("pass");
-      else if (e.translationY < -SWIPE_UP) fling("superlike");
       else {
         tx.set(withSpring(0));
         ty.set(withSpring(0));
@@ -123,7 +127,7 @@ export function SwipeCard({
         { rotate: `${rotate}deg` },
       ],
     };
-  }, [isTop, width]);
+  });
 
   const likeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(tx.get(), [20, SWIPE_X], [0, 1], Extrapolation.CLAMP),
@@ -139,47 +143,44 @@ export function SwipeCard({
   const superStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       ty.get(),
-      [-SWIPE_UP, -30],
+      [-height * 0.3, -40],
       [1, 0],
       Extrapolation.CLAMP,
     ),
   }));
 
-  const current = media[Math.min(index, media.length - 1)];
-  const go = (dir: 1 | -1) =>
-    setIndex((i) => Math.max(0, Math.min(media.length - 1, i + dir)));
+  const gold = isGold(profile);
+  const justJoined = isJustJoined(profile);
+  const active = isRecentlyActive(profile);
 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
         style={[styles.card, { backgroundColor: colors.surface }, cardStyle]}
       >
-        {/* media */}
-        {loadedUri !== current.uri && current.type === "photo" ? (
-          <Skeleton style={StyleSheet.absoluteFill} />
-        ) : null}
-        {current.type === "photo" ? (
-          <Image
-            source={{ uri: current.uri }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            transition={120}
-            cachePolicy="memory-disk"
-            blurRadius={profile.blurred ? 60 : 0}
-            onLoad={() => setLoadedUri(current.uri)}
-            onError={() => {
-              if (__DEV__)
-                console.log(
-                  `[deck] photo failed ${profile.id} ${current.uri.split("/").pop()}`,
-                );
-            }}
-          />
-        ) : (
-          <CardVideo uri={current.uri} active={isTop} />
-        )}
+        {!loaded ? <Skeleton style={StyleSheet.absoluteFill} /> : null}
+        <Image
+          source={{ uri: mainPhotoUri(profile) }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={120}
+          cachePolicy="memory-disk"
+          blurRadius={locked ? 60 : 0}
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            if (__DEV__) console.log(`[deck] photo failed ${profile.id}`);
+          }}
+        />
 
-        {/* blurred profile: lock (rule 9.3) */}
-        {profile.blurred ? (
+        {/* tap anywhere → full-screen photos */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onOpen}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${profile.name}’s photos`}
+        />
+
+        {locked ? (
           <View style={[styles.lockWrap, styles.noTouch]}>
             <View
               style={[
@@ -206,41 +207,25 @@ export function SwipeCard({
             colors.photoScrimMiddle,
             colors.photoScrimBottom,
           ]}
-          locations={[0.45, 0.65, 1]}
+          locations={[0.5, 0.7, 1]}
           style={[StyleSheet.absoluteFill, styles.noTouch]}
         />
 
-        {/* progress segments */}
-        {media.length > 1 ? (
-          <View style={[styles.segments, styles.noTouch]}>
-            {media.map((m, i) => (
-              <View
-                key={m.uri}
-                style={[
-                  styles.segment,
-                  {
-                    backgroundColor:
-                      i === index ? colors.onPhoto : colors.photoScrimTop,
-                  },
-                ]}
-              />
-            ))}
+        {/* media count */}
+        {!locked && mediaCount > 1 ? (
+          <View
+            style={[
+              styles.countPill,
+              styles.noTouch,
+              { backgroundColor: colors.photoScrimTop },
+            ]}
+          >
+            <Ionicons name="images-outline" size={14} color={colors.onPhoto} />
+            <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
+              1/{mediaCount}
+            </AppText>
           </View>
         ) : null}
-
-        {/* tap left / right to change photo */}
-        <View style={styles.tapZones}>
-          <Pressable
-            style={styles.flex}
-            onPress={() => go(-1)}
-            accessibilityLabel="Previous photo"
-          />
-          <Pressable
-            style={styles.flex}
-            onPress={() => go(1)}
-            accessibilityLabel="Next photo"
-          />
-        </View>
 
         {/* stamps */}
         <Animated.View
@@ -272,7 +257,7 @@ export function SwipeCard({
         <Animated.View
           style={[
             styles.stamp,
-            styles.stampBottom,
+            styles.stampMiddle,
             { borderColor: colors.superLike },
             styles.noTouch,
             superStyle,
@@ -285,6 +270,54 @@ export function SwipeCard({
 
         {/* info */}
         <View style={[styles.info, styles.noTouch]}>
+          {gold || justJoined || active ? (
+            <View style={styles.badges}>
+              {gold ? (
+                <View style={[styles.badge, { backgroundColor: colors.gold }]}>
+                  <Ionicons name="star" size={12} color={colors.onPhoto} />
+                  <AppText
+                    variant="caption"
+                    weight="bold"
+                    color={colors.onPhoto}
+                  >
+                    Gold
+                  </AppText>
+                </View>
+              ) : null}
+              {justJoined ? (
+                <View
+                  style={[styles.badge, { backgroundColor: colors.primary }]}
+                >
+                  <AppText
+                    variant="caption"
+                    weight="bold"
+                    color={colors.onPrimary}
+                  >
+                    Just joined
+                  </AppText>
+                </View>
+              ) : null}
+              {active ? (
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: colors.photoScrimTop },
+                  ]}
+                >
+                  <View
+                    style={[styles.dot, { backgroundColor: colors.online }]}
+                  />
+                  <AppText
+                    variant="caption"
+                    weight="semibold"
+                    color={colors.onPhoto}
+                  >
+                    {activityLabel(profile)}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           <View style={styles.nameRow}>
             <AppText
               variant="display"
@@ -328,47 +361,9 @@ export function SwipeCard({
               {distanceKm(profile.id)} km away
             </AppText>
           </View>
-          <View
-            style={[styles.chip, { backgroundColor: colors.photoScrimTop }]}
-          >
-            <Ionicons
-              name={INTENT_ICON[profile.intent]}
-              size={14}
-              color={colors.onPhoto}
-            />
-            <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
-              {INTENT_LABEL[profile.intent]}
-            </AppText>
-          </View>
         </View>
       </Animated.View>
     </GestureDetector>
-  );
-}
-
-// Muted looping video, only playing while the card is on top.
-function CardVideo({ uri, active }: { uri: string; active: boolean }) {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = true;
-    p.muted = true;
-  });
-
-  useEffect(() => {
-    if (active) player.play();
-    else player.pause();
-    if (__DEV__)
-      console.log(
-        `[deck] video ${active ? "play" : "pause"} ${uri.split("/").slice(-2).join("/")}`,
-      );
-  }, [active, player, uri]);
-
-  return (
-    <VideoView
-      player={player}
-      style={StyleSheet.absoluteFill}
-      contentFit="cover"
-      nativeControls={false}
-    />
   );
 }
 
@@ -384,9 +379,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 22,
     overflow: "hidden",
-  },
-  flex: {
-    flex: 1,
   },
   shrink: {
     flexShrink: 1,
@@ -410,26 +402,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  segments: {
+  countPill: {
     position: "absolute",
-    top: 10,
-    left: 10,
-    right: 10,
+    top: 12,
+    right: 12,
     flexDirection: "row",
-    gap: 4,
-  },
-  segment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  tapZones: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 140, // leaves the info area at the bottom free
-    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
   stamp: {
     position: "absolute",
@@ -448,8 +430,8 @@ const styles = StyleSheet.create({
     right: 24,
     transform: [{ rotate: "18deg" }],
   },
-  stampBottom: {
-    bottom: 170,
+  stampMiddle: {
+    top: "40%",
     alignSelf: "center",
   },
   info: {
@@ -458,6 +440,25 @@ const styles = StyleSheet.create({
     right: 18,
     bottom: 18,
     gap: 4,
+  },
+  badges: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 4,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   nameRow: {
     flexDirection: "row",
@@ -468,15 +469,5 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  chip: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginTop: 6,
   },
 });

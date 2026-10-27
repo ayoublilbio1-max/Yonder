@@ -1,5 +1,6 @@
 import { R2_BASE } from "../constants/app";
 import raw from "../data/profiles.json";
+import { isLocked } from "./extras";
 import type { MediaItem, Profile, ProfileIntent } from "./types";
 
 export const PROFILES = raw as unknown as Profile[];
@@ -20,12 +21,13 @@ export function mainPhotoUri(p: Profile) {
 }
 
 // Rule 9.2: 1.webp, then the video, then the other photos.
-// Rule 9.3: a blurred profile never shows its video.
+// Rule 9.3: a locked profile never shows its video.
 export function mediaOf(p: Profile): MediaItem[] {
   const base = mediaBase(p);
   const [first, ...rest] = p.photos;
   const items: MediaItem[] = [{ type: "photo", uri: base + first }];
-  if (p.video && !p.blurred) items.push({ type: "video", uri: base + p.video });
+  if (p.video && !isLocked(p))
+    items.push({ type: "video", uri: base + p.video });
   rest.forEach((file) => items.push({ type: "photo", uri: base + file }));
   return items;
 }

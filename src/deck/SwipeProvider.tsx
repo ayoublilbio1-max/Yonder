@@ -1,38 +1,55 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
 } from "react";
 import { profileDraftKey } from "../onboarding/OnboardingProvider";
 import type { ProfileDraft } from "../onboarding/types";
 import type { Profile, ProfileGender } from "../profiles/types";
 import { buildDeck } from "./buildDeck";
 
-// Swipe state for one account.
-// - decisions (like / pass / super like) are saved on the phone, for matches later;
-// - profiles swiped in this app session leave the deck until the app is closed (rule 9.1),
-//   except with Rewind (rule 9.5).
+// Swipe state for one account, saved on the phone:
+// - decisions (like / pass / super like) for matches later;
+// - favorites, blocked / reported profiles (never shown again), compliments sent;
+// - profiles swiped in this app session leave the deck until the app closes (rule 9.1), except with Rewind.
 // Mount it with key={userId}.
 
 export type SwipeAction = "like" | "pass" | "superlike";
 type Swiped = { id: string; action: SwipeAction };
 
-const decisionsKey = (userId: string) => `yonder.swipes.${userId}`;
+type Saved = {
+  decisions: Record<string, SwipeAction>;
+  favorites: string[];
+  blocked: string[];
+  compliments: Record<string, string>;
+};
+
+const EMPTY: Saved = {
+  decisions: {},
+  favorites: [],
+  blocked: [],
+  compliments: {},
+};
+const storageKey = (userId: string) => `yonder.deck.${userId}`;
 
 type SwipeContextValue = {
   ready: boolean;
   show: ProfileGender; // who the tester sees
+  me: ProfileDraft; // the tester's own onboarding answers (for "Your similarities")
   deck: Profile[];
   swipe: (id: string, action: SwipeAction) => void;
   rewindLast: () => Profile | null;
   canRewind: boolean;
   rewindPassed: () => number;
-  decisions: Record<string, SwipeAction>;
+  saved: Saved;
+  toggleFavorite: (id: string) => boolean; // returns the new state
+  block: (id: string, reason: string) => void;
+  saveCompliment: (id: string, text: string) => void;
 };
 
 const SwipeContext = createContext<SwipeContextValue | null>(null);
@@ -45,31 +62,28 @@ export function SwipeProvider({
   children: ReactNode;
 }) {
   const [ready, setReady] = useState(false);
-  const [show, setShow] = useState<ProfileGender>("female");
-  const [decisions, setDecisions] = useState<Record<string, SwipeAction>>({});
+  const [me, setMe] = useState<ProfileDraft>({});
+  const [saved, setSaved] = useState<Saved>(EMPTY);
   const [sessionSwiped, setSessionSwiped] = useState<Swiped[]>([]);
 
-  // Load the tester's gender (from onboarding) and saved decisions.
   useEffect(() => {
     let alive = true;
     const t0 = Date.now();
     Promise.all([
       AsyncStorage.getItem(profileDraftKey(userId)),
-      AsyncStorage.getItem(decisionsKey(userId)),
+      AsyncStorage.getItem(storageKey(userId)),
     ])
-      .then(([draftRaw, decisionsRaw]) => {
+      .then(([draftRaw, savedRaw]) => {
         if (!alive) return;
         const draft = draftRaw ? (JSON.parse(draftRaw) as ProfileDraft) : {};
-        const nextShow: ProfileGender =
-          draft.gender === "woman" ? "male" : "female";
-        setShow(nextShow);
-        const saved = decisionsRaw
-          ? (JSON.parse(decisionsRaw) as Record<string, SwipeAction>)
-          : {};
-        setDecisions(saved);
+        const loaded = savedRaw
+          ? { ...EMPTY, ...(JSON.parse(savedRaw) as Partial<Saved>) }
+          : EMPTY;
+        setMe(draft);
+        setSaved(loaded);
         if (__DEV__) {
           console.log(
-            `[deck] loaded in ${Date.now() - t0}ms · tester=${draft.gender ?? "unknown"} → showing ${nextShow} · ${Object.keys(saved).length} saved decisions`,
+            `[deck] loaded in ${Date.now() - t0}ms · tester=${draft.gender ?? "unknown"} · ${Object.keys(loaded.decisions).length} decisions · ${loaded.favorites.length} favorites · ${loaded.blocked.length} blocked`,
           );
         }
       })
@@ -84,17 +98,18 @@ export function SwipeProvider({
     };
   }, [userId]);
 
-  // Save decisions after every change.
   useEffect(() => {
     if (!ready) return;
-    AsyncStorage.setItem(decisionsKey(userId), JSON.stringify(decisions)).catch(
+    AsyncStorage.setItem(storageKey(userId), JSON.stringify(saved)).catch(
       () => {},
     );
-  }, [decisions, ready, userId]);
+  }, [saved, ready, userId]);
+
+  const show: ProfileGender = me.gender === "woman" ? "male" : "female";
 
   const hiddenIds = useMemo(
-    () => new Set(sessionSwiped.map((s) => s.id)),
-    [sessionSwiped],
+    () => new Set([...sessionSwiped.map((s) => s.id), ...saved.blocked]),
+    [sessionSwiped, saved.blocked],
   );
   const deck = useMemo(
     () => (ready ? buildDeck(show, hiddenIds) : []),
@@ -103,7 +118,10 @@ export function SwipeProvider({
 
   const swipe = useCallback((id: string, action: SwipeAction) => {
     setSessionSwiped((prev) => [...prev, { id, action }]);
-    setDecisions((prev) => ({ ...prev, [id]: action }));
+    setSaved((prev) => ({
+      ...prev,
+      decisions: { ...prev.decisions, [id]: action },
+    }));
     if (__DEV__) console.log(`[deck] ${action} ${id}`);
   }, []);
 
@@ -111,10 +129,10 @@ export function SwipeProvider({
     const last = sessionSwiped[sessionSwiped.length - 1];
     if (!last) return null;
     setSessionSwiped((prev) => prev.slice(0, -1));
-    setDecisions((prev) => {
-      const next = { ...prev };
-      delete next[last.id];
-      return next;
+    setSaved((prev) => {
+      const decisions = { ...prev.decisions };
+      delete decisions[last.id];
+      return { ...prev, decisions };
     });
     if (__DEV__) console.log(`[deck] rewind ${last.id} (${last.action})`);
     return buildDeck(show, new Set()).find((p) => p.id === last.id) ?? null;
@@ -127,26 +145,66 @@ export function SwipeProvider({
     return passed;
   }, [sessionSwiped]);
 
+  const toggleFavorite = useCallback(
+    (id: string) => {
+      const next = !saved.favorites.includes(id);
+      setSaved((prev) => ({
+        ...prev,
+        favorites: next
+          ? [...prev.favorites, id]
+          : prev.favorites.filter((f) => f !== id),
+      }));
+      if (__DEV__) console.log(`[deck] favorite ${id} → ${next}`);
+      return next;
+    },
+    [saved.favorites],
+  );
+
+  const block = useCallback((id: string, reason: string) => {
+    setSaved((prev) => ({
+      ...prev,
+      blocked: prev.blocked.includes(id) ? prev.blocked : [...prev.blocked, id],
+    }));
+    if (__DEV__) console.log(`[deck] blocked ${id} · ${reason}`);
+  }, []);
+
+  const saveCompliment = useCallback((id: string, text: string) => {
+    setSaved((prev) => ({
+      ...prev,
+      compliments: { ...prev.compliments, [id]: text },
+    }));
+    if (__DEV__)
+      console.log(`[deck] compliment to ${id} (${text.length} chars)`);
+  }, []);
+
   const value = useMemo(
     () => ({
       ready,
       show,
+      me,
       deck,
       swipe,
       rewindLast,
       canRewind: sessionSwiped.length > 0,
       rewindPassed,
-      decisions,
+      saved,
+      toggleFavorite,
+      block,
+      saveCompliment,
     }),
     [
       ready,
       show,
+      me,
       deck,
       swipe,
       rewindLast,
       sessionSwiped.length,
       rewindPassed,
-      decisions,
+      saved,
+      toggleFavorite,
+      block,
+      saveCompliment,
     ],
   );
 
