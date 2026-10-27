@@ -3,14 +3,14 @@ import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useMemo, useState } from "react";
 import {
-    FlatList,
-    Modal,
-    Pressable,
-    StyleSheet,
-    useWindowDimensions,
-    View,
-    type NativeScrollEvent,
-    type NativeSyntheticEvent,
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../components/AppText";
@@ -98,7 +98,10 @@ export function MediaViewer({ profile, onClose, onReport }: Props) {
             </AppText>
           ) : null}
           <Pressable
-            onPress={onReport}
+            onPress={() => {
+              setIndex(0); // the next open starts at the main photo again
+              onReport();
+            }}
             accessibilityRole="button"
             accessibilityLabel="Report"
             hitSlop={10}

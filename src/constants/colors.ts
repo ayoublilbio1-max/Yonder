@@ -32,9 +32,19 @@ const onPhotoTokens = {
   viewerBg: "#000000",
 } as const;
 
+// Swipe action buttons (same in light and dark): [top-left, bottom-right] gradient.
+export const actionGradients = {
+  rewind: ["#F8DA7E", "#EDB144"],
+  pass: ["#FF7B6E", "#F2365F"],
+  superLike: ["#62D6F2", "#4A86F7"],
+  like: ["#7FEADB", "#55E49A"],
+  compliment: ["#BE8DEB", "#8A3FE0"],
+} as const;
+
 export type ThemeColors = {
   // surfaces
   bg: string;
+  bgFade: string; // bg at 0% opacity (fade behind the fixed swipe buttons)
   surface: string;
   card: string;
   border: string;
@@ -89,6 +99,7 @@ export type ThemeColors = {
 
 export const lightColors: ThemeColors = {
   bg: "#FFFFFF",
+  bgFade: "rgba(255, 255, 255, 0)",
   surface: "#F8F3F5",
   card: "#FFFFFF",
   border: "#EEE2E7",
@@ -126,6 +137,7 @@ export const lightColors: ThemeColors = {
 
 export const darkColors: ThemeColors = {
   bg: "#120A0E",
+  bgFade: "rgba(18, 10, 14, 0)",
   surface: "#1C1117",
   card: "#22141B",
   border: "#33212A",

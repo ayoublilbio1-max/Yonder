@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   useEffect,
   useRef,
@@ -22,6 +23,7 @@ import { ConfirmModal } from "../../components/ConfirmModal";
 import { NotInDemoModal } from "../../components/NotInDemoModal";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
+import { actionGradients } from "../../constants/colors";
 import { ComplimentSheet } from "../../deck/ComplimentSheet";
 import { EmptyDeck } from "../../deck/EmptyDeck";
 import { MediaViewer } from "../../deck/MediaViewer";
@@ -35,8 +37,12 @@ import type { Profile } from "../../profiles/types";
 import { useTheme } from "../../theme/ThemeProvider";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
+type Gradient = readonly [string, string];
 
-// Swipe (home), Muzz style: top bar · card · buttons · the whole profile below, all in one scroll.
+const BAR_HEIGHT = 96; // fixed swipe buttons above the tab bar (incl. fade)
+
+// Swipe (home), Muzz style: top bar · card · the whole profile below in one scroll,
+// with the swipe buttons fixed above the tab bar (they never scroll away).
 export default function SwipeScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
@@ -56,6 +62,7 @@ export default function SwipeScreen() {
   } = useSwipe();
   const progress = useSharedValue(0);
   const flingRef = useRef<FlingFn | null>(null);
+  const busyRef = useRef(false); // a card is flying out: ignore more taps until it's gone
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const [notInDemo, setNotInDemo] = useState<string | null>(null);
@@ -84,9 +91,11 @@ export default function SwipeScreen() {
   const topId = top?.id;
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    busyRef.current = false;
   }, [topId]);
 
   const onSwiped = (action: SwipeAction) => {
+    busyRef.current = false;
     if (!top) return;
     progress.set(0);
     if (action === "superlike")
@@ -99,12 +108,19 @@ export default function SwipeScreen() {
 
   const press = (action: SwipeAction) => {
     if (!top) return;
+    if (busyRef.current) {
+      if (__DEV__)
+        console.log(`[deck] ${action} tap ignored (card still moving)`);
+      return;
+    }
+    busyRef.current = true;
     scrollRef.current?.scrollTo({ y: 0, animated: true });
     if (flingRef.current) flingRef.current(action);
     else onSwiped(action);
   };
 
   const rewind = () => {
+    if (busyRef.current) return;
     const back = rewindLast();
     if (back)
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -226,45 +242,6 @@ export default function SwipeScreen() {
             />
           </View>
 
-          <View style={styles.actions}>
-            <ActionButton
-              icon="refresh"
-              color={colors.rewind}
-              size={46}
-              label="Rewind"
-              onPress={rewind}
-              disabled={!canRewind}
-            />
-            <ActionButton
-              icon="close"
-              color={colors.stampNope}
-              size={60}
-              label="Pass"
-              onPress={() => press("pass")}
-            />
-            <ActionButton
-              icon="star"
-              color={colors.superLike}
-              size={46}
-              label="Super like"
-              onPress={() => press("superlike")}
-            />
-            <ActionButton
-              icon="heart"
-              color={colors.primary}
-              size={60}
-              label="Like"
-              onPress={() => press("like")}
-            />
-            <ActionButton
-              icon="chatbubble-ellipses"
-              color={colors.gold}
-              size={46}
-              label="Send compliment"
-              onPress={() => setComplimenting(top)}
-            />
-          </View>
-
           <ProfileSections
             key={top.id}
             profile={top}
@@ -277,6 +254,54 @@ export default function SwipeScreen() {
           />
         </ScrollView>
       )}
+
+      {ready && top ? (
+        <View style={styles.bar}>
+          <LinearGradient
+            colors={[colors.bgFade, colors.bg]}
+            locations={[0, 0.45]}
+            style={[StyleSheet.absoluteFill, styles.noTouch]}
+          />
+          <View style={styles.actions}>
+            <ActionButton
+              icon="refresh"
+              gradient={actionGradients.rewind}
+              size={50}
+              label="Rewind"
+              onPress={rewind}
+              disabled={!canRewind}
+            />
+            <ActionButton
+              icon="close"
+              gradient={actionGradients.pass}
+              size={64}
+              label="Pass"
+              onPress={() => press("pass")}
+            />
+            <ActionButton
+              icon="star"
+              gradient={actionGradients.superLike}
+              size={50}
+              label="Super like"
+              onPress={() => press("superlike")}
+            />
+            <ActionButton
+              icon="heart"
+              gradient={actionGradients.like}
+              size={64}
+              label="Like"
+              onPress={() => press("like")}
+            />
+            <ActionButton
+              icon="chatbubble-ellipses"
+              gradient={actionGradients.compliment}
+              size={50}
+              label="Send compliment"
+              onPress={() => setComplimenting(top)}
+            />
+          </View>
+        </View>
+      ) : null}
 
       <MediaViewer
         profile={viewing}
@@ -371,14 +396,14 @@ function TopButton({
 
 function ActionButton({
   icon,
-  color,
+  gradient,
   size,
   label,
   onPress,
   disabled,
 }: {
   icon: IconName;
-  color: string;
+  gradient: Gradient;
   size: number;
   label: string;
   onPress: () => void;
@@ -391,20 +416,28 @@ function ActionButton({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.action,
         {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          opacity: disabled ? 0.35 : 1,
-          transform: [{ scale: pressed ? 0.9 : 1 }],
+          backgroundColor: gradient[1], // Android needs a background to draw the shadow
+          shadowColor: gradient[1],
+          opacity: disabled ? 0.4 : 1,
+          transform: [{ scale: pressed ? 0.88 : 1 }],
         },
       ]}
     >
-      <Ionicons name={icon} size={size * 0.46} color={color} />
+      <LinearGradient
+        colors={gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.actionFill, { borderRadius: size / 2 }]}
+      >
+        <Ionicons name={icon} size={size * 0.5} color={colors.onPhoto} />
+      </LinearGradient>
     </Pressable>
   );
 }
@@ -435,7 +468,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   scroll: {
-    paddingBottom: 110, // room above the tab bar
+    paddingBottom: BAR_HEIGHT + 8, // the last section stays above the fixed buttons
   },
   cardBox: {
     marginHorizontal: 12,
@@ -451,16 +484,32 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 18,
   },
+  noTouch: {
+    pointerEvents: "none",
+  },
+  bar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: BAR_HEIGHT,
+    justifyContent: "flex-end",
+    pointerEvents: "box-none", // taps between the buttons reach the page
+  },
   actions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-evenly",
-    paddingVertical: 14,
+    paddingHorizontal: 8,
+    paddingBottom: 12,
+    pointerEvents: "box-none",
   },
   action: {
+    elevation: 6,
+  },
+  actionFill: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    elevation: 3,
   },
 });

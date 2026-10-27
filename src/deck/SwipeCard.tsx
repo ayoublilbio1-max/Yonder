@@ -9,6 +9,8 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
+  withSequence,
   withSpring,
   withTiming,
   type SharedValue,
@@ -45,7 +47,11 @@ type Props = {
 
 const SWIPE_X = 110; // px past which a drag counts as a swipe
 const FLING_VELOCITY = 900;
-const DURATION = 240;
+const DURATION = 300; // finger swipe: card flies out
+// Button press: lean the card so the stamp shows, hold, then fly out.
+const LEAN_MS = 260;
+const HOLD_MS = 260;
+const OUT_MS = 380;
 
 export function SwipeCard({
   profile,
@@ -64,6 +70,7 @@ export function SwipeCard({
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
 
+  // Finger swipe: straight out.
   const fling = (action: SwipeAction) => {
     "worklet";
     const toX =
@@ -78,10 +85,50 @@ export function SwipeCard({
     );
   };
 
+  // Button press: the card leans so LIKE / NOPE / SUPER LIKE is clearly seen, then leaves.
+  const buttonFling = (action: SwipeAction) => {
+    "worklet";
+    const dir = action === "like" ? 1 : -1;
+    progress.set(
+      withDelay(LEAN_MS + HOLD_MS, withTiming(1, { duration: OUT_MS })),
+    );
+    if (action === "superlike") {
+      ty.set(
+        withSequence(
+          withTiming(-height * 0.32, { duration: LEAN_MS }),
+          withDelay(
+            HOLD_MS,
+            withTiming(-height * 1.2, { duration: OUT_MS }, (finished) => {
+              if (finished) scheduleOnRN(onSwiped, action);
+            }),
+          ),
+        ),
+      );
+      return;
+    }
+    tx.set(
+      withSequence(
+        withTiming(dir * SWIPE_X * 1.25, { duration: LEAN_MS }),
+        withDelay(
+          HOLD_MS,
+          withTiming(dir * width * 1.6, { duration: OUT_MS }, (finished) => {
+            if (finished) scheduleOnRN(onSwiped, action);
+          }),
+        ),
+      ),
+    );
+    ty.set(
+      withSequence(
+        withTiming(-14, { duration: LEAN_MS }),
+        withDelay(HOLD_MS, withTiming(40, { duration: OUT_MS })),
+      ),
+    );
+  };
+
   // Let the action buttons swipe this card while it's on top.
   useEffect(() => {
     if (!isTop || !registerFling) return;
-    registerFling(fling);
+    registerFling(buttonFling);
     return () => registerFling(null);
   });
 
@@ -129,8 +176,20 @@ export function SwipeCard({
     };
   });
 
+  // Stamps fade in and "land" (shrink from 1.4 to 1) as the card moves.
   const likeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(tx.get(), [20, SWIPE_X], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      { rotate: "-18deg" },
+      {
+        scale: interpolate(
+          tx.get(),
+          [20, SWIPE_X],
+          [1.4, 1],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
   }));
   const nopeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
@@ -139,6 +198,17 @@ export function SwipeCard({
       [1, 0],
       Extrapolation.CLAMP,
     ),
+    transform: [
+      { rotate: "18deg" },
+      {
+        scale: interpolate(
+          tx.get(),
+          [-SWIPE_X, -20],
+          [1, 1.4],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
   }));
   const superStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
@@ -147,6 +217,16 @@ export function SwipeCard({
       [1, 0],
       Extrapolation.CLAMP,
     ),
+    transform: [
+      {
+        scale: interpolate(
+          ty.get(),
+          [-height * 0.3, -40],
+          [1, 1.4],
+          Extrapolation.CLAMP,
+        ),
+      },
+    ],
   }));
 
   const gold = isGold(profile);
@@ -423,12 +503,10 @@ const styles = StyleSheet.create({
   stampLeft: {
     top: 48,
     left: 24,
-    transform: [{ rotate: "-18deg" }],
   },
   stampRight: {
     top: 48,
     right: 24,
-    transform: [{ rotate: "18deg" }],
   },
   stampMiddle: {
     top: "40%",
