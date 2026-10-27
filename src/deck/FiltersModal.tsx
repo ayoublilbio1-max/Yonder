@@ -13,6 +13,7 @@ import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../components/AppButton";
 import { AppText } from "../components/AppText";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { RangeSlider } from "../components/RangeSlider";
 import {
   ACTIVE_OPTIONS,
@@ -184,6 +185,8 @@ function FiltersBody({ value, onClose, onApply }: Props) {
   const [draft, setDraft] = useState<Filters>(value);
   const [page, setPage] = useState<PageKey | null>(null);
   const [goldOpen, setGoldOpen] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [sliderKey, setSliderKey] = useState(0); // new key = sliders start again from the draft values
   const count = activeFilterCount(draft);
 
   const set = (patch: Partial<Filters>) =>
@@ -214,8 +217,10 @@ function FiltersBody({ value, onClose, onApply }: Props) {
   };
 
   const clearPage = (k: PageKey) => {
-    if (k === "height") set({ heightMin: HEIGHT_MIN, heightMax: HEIGHT_MAX });
-    else if (k === "children") set({ children: "any" });
+    if (k === "height") {
+      set({ heightMin: HEIGHT_MIN, heightMax: HEIGHT_MAX });
+      setSliderKey((n) => n + 1);
+    } else if (k === "children") set({ children: "any" });
     else if (k === "photos") set({ photos: "any" });
     else if (k === "active") set({ active: "any" });
     else set({ [k]: [] } as Partial<Filters>);
@@ -259,7 +264,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                 <HeaderText
                   label="Reset"
                   disabled={count === 0}
-                  onPress={() => setDraft(DEFAULT_FILTERS)}
+                  onPress={() => setConfirmReset(true)}
                 />
               }
             />
@@ -278,6 +283,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                   </AppText>
                 </View>
                 <RangeSlider
+                  key={`age-${sliderKey}`}
                   min={AGE_MIN}
                   max={AGE_MAX}
                   low={draft.ageMin}
@@ -301,6 +307,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                   </AppText>
                 </View>
                 <RangeSlider
+                  key={`distance-${sliderKey}`}
                   min={DISTANCE_MIN}
                   max={DISTANCE_MAX}
                   high={draft.distance ?? DISTANCE_MAX}
@@ -477,12 +484,27 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                 draft={draft}
                 set={set}
                 toggle={toggle}
+                sliderKey={sliderKey}
               />
             </ScrollView>
           </Animated.View>
         )}
 
         <GoldSheet visible={goldOpen} onClose={() => setGoldOpen(false)} />
+        <ConfirmModal
+          visible={confirmReset}
+          icon="refresh-outline"
+          title="Reset all filters?"
+          message="Age, distance and every other filter go back to “Any”. Nothing changes until you tap Apply filters."
+          confirmLabel="Reset"
+          onCancel={() => setConfirmReset(false)}
+          onConfirm={() => {
+            setConfirmReset(false);
+            setDraft(DEFAULT_FILTERS);
+            setSliderKey((n) => n + 1);
+            if (__DEV__) console.log("[filters] reset (draft)");
+          }}
+        />
       </GestureHandlerRootView>
     </Modal>
   );
@@ -493,11 +515,13 @@ function PageContent({
   draft,
   set,
   toggle,
+  sliderKey,
 }: {
   page: PageKey;
   draft: Filters;
   set: (patch: Partial<Filters>) => void;
   toggle: (k: ListKey, v: string) => void;
+  sliderKey: number;
 }) {
   const colors = useTheme();
 
@@ -513,6 +537,7 @@ function PageContent({
           </AppText>
         </View>
         <RangeSlider
+          key={`height-${sliderKey}`}
           min={HEIGHT_MIN}
           max={HEIGHT_MAX}
           low={draft.heightMin}
