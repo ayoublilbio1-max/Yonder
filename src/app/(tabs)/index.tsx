@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentProps,
@@ -19,21 +20,28 @@ import {
 } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { NotInDemoModal } from "../../components/NotInDemoModal";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { actionGradients } from "../../constants/colors";
+import { BoostSheet } from "../../deck/BoostSheet";
 import { ComplimentSheet } from "../../deck/ComplimentSheet";
 import { EmptyDeck } from "../../deck/EmptyDeck";
 import { MediaViewer } from "../../deck/MediaViewer";
+import { buildNotifications } from "../../deck/notifications";
+import { NotificationsModal } from "../../deck/NotificationsModal";
 import { ProfileSections } from "../../deck/ProfileSections";
 import { ReportSheet } from "../../deck/ReportSheet";
+import { sortLabel } from "../../deck/sort";
+import { SortSheet } from "../../deck/SortSheet";
 import { SwipeCard, type FlingFn } from "../../deck/SwipeCard";
 import { useSwipe, type SwipeAction } from "../../deck/SwipeProvider";
 import { mainPhotoUri } from "../../profiles/data";
 import { isLocked } from "../../profiles/extras";
 import type { Profile } from "../../profiles/types";
+import { useBoostLeft } from "../../store/WalletProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -50,6 +58,7 @@ export default function SwipeScreen() {
   const toast = useToast();
   const {
     ready,
+    show,
     deck,
     swipe,
     rewindLast,
@@ -59,6 +68,8 @@ export default function SwipeScreen() {
     toggleFavorite,
     block,
     saveCompliment,
+    setSort,
+    markNotificationsSeen,
   } = useSwipe();
   const progress = useSharedValue(0);
   const flingRef = useRef<FlingFn | null>(null);
@@ -70,6 +81,26 @@ export default function SwipeScreen() {
   const [reporting, setReporting] = useState<Profile | null>(null);
   const [blocking, setBlocking] = useState<Profile | null>(null);
   const [complimenting, setComplimenting] = useState<Profile | null>(null);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [boostOpen, setBoostOpen] = useState(false);
+  const [notifSeenAt, setNotifSeenAt] = useState<number | null>(null); // null = list closed
+
+  const notifications = useMemo(
+    () => buildNotifications(show, me.firstName),
+    [show, me.firstName],
+  );
+  const hasNewNotifications = notifications.some(
+    (n) => n.at > saved.notificationsSeenAt,
+  );
+
+  const openNotifications = () => {
+    setNotifSeenAt(saved.notificationsSeenAt); // keep the dots while the list is open
+    markNotificationsSeen();
+    if (__DEV__)
+      console.log(
+        `[notif] open · ${notifications.filter((n) => n.at > saved.notificationsSeenAt).length} new`,
+      );
+  };
 
   const top = deck[0];
   const next = deck[1];
@@ -181,20 +212,18 @@ export default function SwipeScreen() {
       />
       <TopButton
         icon="swap-vertical"
-        label="Sort"
-        onPress={() => setNotInDemo("Sort")}
+        label={`Sort: ${sortLabel(saved.sort)}`}
+        color={saved.sort !== "recommended" ? colors.primary : undefined}
+        dot={saved.sort !== "recommended"}
+        onPress={() => setSortOpen(true)}
       />
       <View style={styles.flex} />
-      <TopButton
-        icon="flash"
-        label="Boost"
-        color={colors.boost}
-        onPress={() => setNotInDemo("Boost")}
-      />
+      <BoostButton onPress={() => setBoostOpen(true)} />
       <TopButton
         icon="notifications-outline"
         label="Notifications"
-        onPress={() => setNotInDemo("Notifications")}
+        dot={hasNewNotifications}
+        onPress={openNotifications}
       />
     </View>
   );
@@ -357,6 +386,26 @@ export default function SwipeScreen() {
         }}
       />
 
+      <SortSheet
+        visible={sortOpen}
+        value={saved.sort}
+        onClose={() => setSortOpen(false)}
+        onChange={setSort}
+      />
+
+      <BoostSheet visible={boostOpen} onClose={() => setBoostOpen(false)} />
+
+      <NotificationsModal
+        visible={notifSeenAt !== null}
+        items={notifications}
+        seenAt={notifSeenAt ?? 0}
+        onClose={() => setNotifSeenAt(null)}
+        onBoost={() => {
+          setNotifSeenAt(null);
+          setBoostOpen(true);
+        }}
+      />
+
       <NotInDemoModal
         visible={notInDemo !== null}
         feature={notInDemo ?? ""}
@@ -371,11 +420,13 @@ function TopButton({
   label,
   onPress,
   color,
+  dot,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
   color?: string;
+  dot?: boolean;
 }) {
   const colors = useTheme();
   return (
@@ -390,6 +441,48 @@ function TopButton({
       ]}
     >
       <Ionicons name={icon} size={21} color={color ?? colors.text} />
+      {dot ? (
+        <View
+          style={[
+            styles.topDot,
+            { backgroundColor: colors.primary, borderColor: colors.surface },
+          ]}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+// Its own component: while a boost runs it re-renders every second (not the whole page).
+function BoostButton({ onPress }: { onPress: () => void }) {
+  const colors = useTheme();
+  const left = useBoostLeft();
+  const active = left > 0;
+  const mins = Math.ceil(left / 60000);
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={active ? `Boost on, ${mins} minutes left` : "Boost"}
+      hitSlop={6}
+      style={({ pressed }) => [
+        active ? styles.boostPill : styles.topButton,
+        {
+          backgroundColor: active ? colors.boost : colors.surface,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <Ionicons
+        name="flash"
+        size={20}
+        color={active ? colors.onBoost : colors.boost}
+      />
+      {active ? (
+        <AppText variant="label" weight="bold" color={colors.onBoost}>
+          {mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`}
+        </AppText>
+      ) : null}
     </Pressable>
   );
 }
@@ -466,6 +559,23 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
+  },
+  topDot: {
+    position: "absolute",
+    top: 8,
+    right: 9,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+  },
+  boostPill: {
+    height: 42,
+    borderRadius: 21,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
   },
   scroll: {
     paddingBottom: BAR_HEIGHT + 8, // the last section stays above the fixed buttons

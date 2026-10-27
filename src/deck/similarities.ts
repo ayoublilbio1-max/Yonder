@@ -7,7 +7,8 @@ import type { Profile } from "../profiles/types";
 
 export type Similarity = { key: string; emoji: string; label: string };
 
-const INTENT_MAP: Record<string, Profile["intent"]> = {
+// tester intent (onboarding) → profile intent
+export const INTENT_MAP: Record<string, Profile["intent"]> = {
   marriage: "marriage",
   serious: "serious_relationship",
   friends: "new_friends",

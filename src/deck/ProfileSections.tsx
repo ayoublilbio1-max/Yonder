@@ -5,11 +5,11 @@ import { AppText } from "../components/AppText";
 import type { ProfileDraft } from "../onboarding/types";
 import { INTENT_ICON, INTENT_LABEL } from "../profiles/data";
 import {
-    DRINKING_LABEL,
-    heightLabel,
-    MARITAL_LABEL,
-    PERSONALITY_NAME,
-    SMOKING_LABEL,
+  DRINKING_LABEL,
+  heightLabel,
+  MARITAL_LABEL,
+  PERSONALITY_NAME,
+  SMOKING_LABEL,
 } from "../profiles/extras";
 import { distanceKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
@@ -332,6 +332,7 @@ function ActionTile({
 const styles = StyleSheet.create({
   wrap: {
     gap: 12,
+    paddingTop: 12, // same gap under the card as between sections
     paddingHorizontal: 12,
     paddingBottom: 28,
   },

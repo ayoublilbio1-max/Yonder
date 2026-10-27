@@ -1,16 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
 } from "react";
 
 // Demo purchases for one account, saved on the phone: compliments (1 free per day + packs),
-// boosts and Gold (used from v0.8.1). Nothing is ever charged.
+// boosts (3 hours each) and Gold (v0.9.0). Nothing is ever charged.
 // Mount it with key={userId}.
 
 type Wallet = {
@@ -37,6 +37,15 @@ export const COMPLIMENT_PACKS = [
   { qty: 25, price: 14.99, tag: "Best value" },
 ];
 
+export const BOOST_HOURS = 3;
+const BOOST_MS = BOOST_HOURS * 60 * 60 * 1000;
+
+export const BOOST_PACKS = [
+  { qty: 1, each: 1.49 },
+  { qty: 5, each: 1.39, tag: "Popular" },
+  { qty: 10, each: 1.19, tag: "Best value" },
+];
+
 type WalletContextValue = {
   ready: boolean;
   wallet: Wallet;
@@ -44,6 +53,8 @@ type WalletContextValue = {
   complimentsLeft: number; // free + bought
   spendCompliment: () => boolean;
   addCompliments: (qty: number) => void;
+  addBoosts: (qty: number, startOne: boolean) => void; // a purchase; startOne = turn one on now
+  startBoost: () => boolean;
   update: (patch: Partial<Wallet>) => void;
 };
 
@@ -113,6 +124,38 @@ export function WalletProvider({
     if (__DEV__) console.log(`[wallet] +${qty} compliments (demo purchase)`);
   }, []);
 
+  const addBoosts = useCallback((qty: number, startOne: boolean) => {
+    setWallet((w) => {
+      const active = (w.boostEndsAt ?? 0) > Date.now();
+      if (startOne && !active)
+        return {
+          ...w,
+          boosts: w.boosts + qty - 1,
+          boostEndsAt: Date.now() + BOOST_MS,
+        };
+      return { ...w, boosts: w.boosts + qty };
+    });
+    if (__DEV__)
+      console.log(
+        `[boost] +${qty} boosts (demo purchase) · start now=${startOne}`,
+      );
+  }, []);
+
+  const startBoost = useCallback(() => {
+    const active = (wallet.boostEndsAt ?? 0) > Date.now();
+    if (active || wallet.boosts <= 0) return false;
+    setWallet((w) => ({
+      ...w,
+      boosts: w.boosts - 1,
+      boostEndsAt: Date.now() + BOOST_MS,
+    }));
+    if (__DEV__)
+      console.log(
+        `[boost] started for ${BOOST_HOURS}h · ${wallet.boosts - 1} left`,
+      );
+    return true;
+  }, [wallet.boostEndsAt, wallet.boosts]);
+
   const update = useCallback(
     (patch: Partial<Wallet>) => setWallet((w) => ({ ...w, ...patch })),
     [],
@@ -126,6 +169,8 @@ export function WalletProvider({
       complimentsLeft: wallet.compliments + (freeComplimentLeft ? 1 : 0),
       spendCompliment,
       addCompliments,
+      addBoosts,
+      startBoost,
       update,
     }),
     [
@@ -134,6 +179,8 @@ export function WalletProvider({
       freeComplimentLeft,
       spendCompliment,
       addCompliments,
+      addBoosts,
+      startBoost,
       update,
     ],
   );
@@ -147,6 +194,37 @@ export function useWallet() {
   const ctx = useContext(WalletContext);
   if (!ctx) throw new Error("useWallet must be used inside WalletProvider");
   return ctx;
+}
+
+// Milliseconds left on the running boost (0 = no boost). Ticks every second while one is on.
+export function useBoostLeft() {
+  const { wallet } = useWallet();
+  const endsAt = wallet.boostEndsAt ?? 0;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (endsAt <= Date.now()) return;
+    const timer = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= endsAt) {
+        clearInterval(timer);
+        if (__DEV__) console.log("[boost] ended");
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [endsAt]);
+
+  return Math.max(0, endsAt - now);
+}
+
+// 2:59:41
+export function formatCountdown(ms: number) {
+  const total = Math.ceil(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 export function formatUsd(amount: number) {

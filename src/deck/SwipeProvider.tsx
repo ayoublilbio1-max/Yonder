@@ -12,6 +12,7 @@ import { profileDraftKey } from "../onboarding/OnboardingProvider";
 import type { ProfileDraft } from "../onboarding/types";
 import type { Profile, ProfileGender } from "../profiles/types";
 import { buildDeck } from "./buildDeck";
+import { sortDeck, type SortKey } from "./sort";
 
 // Swipe state for one account, saved on the phone:
 // - decisions (like / pass / super like) for matches later;
@@ -27,6 +28,8 @@ type Saved = {
   favorites: string[];
   blocked: string[];
   compliments: Record<string, string>;
+  sort: SortKey;
+  notificationsSeenAt: number; // last time the list was opened (ms)
 };
 
 const EMPTY: Saved = {
@@ -34,6 +37,8 @@ const EMPTY: Saved = {
   favorites: [],
   blocked: [],
   compliments: {},
+  sort: "recommended",
+  notificationsSeenAt: 0,
 };
 const storageKey = (userId: string) => `yonder.deck.${userId}`;
 
@@ -50,6 +55,8 @@ type SwipeContextValue = {
   toggleFavorite: (id: string) => boolean; // returns the new state
   block: (id: string, reason: string) => void;
   saveCompliment: (id: string, text: string) => void;
+  setSort: (sort: SortKey) => void;
+  markNotificationsSeen: () => void;
 };
 
 const SwipeContext = createContext<SwipeContextValue | null>(null);
@@ -112,8 +119,8 @@ export function SwipeProvider({
     [sessionSwiped, saved.blocked],
   );
   const deck = useMemo(
-    () => (ready ? buildDeck(show, hiddenIds) : []),
-    [ready, show, hiddenIds],
+    () => (ready ? sortDeck(buildDeck(show, hiddenIds), saved.sort, me) : []),
+    [ready, show, hiddenIds, saved.sort, me],
   );
 
   const swipe = useCallback((id: string, action: SwipeAction) => {
@@ -177,6 +184,15 @@ export function SwipeProvider({
       console.log(`[deck] compliment to ${id} (${text.length} chars)`);
   }, []);
 
+  const setSort = useCallback((sort: SortKey) => {
+    setSaved((prev) => ({ ...prev, sort }));
+    if (__DEV__) console.log(`[sort] ${sort}`);
+  }, []);
+
+  const markNotificationsSeen = useCallback(() => {
+    setSaved((prev) => ({ ...prev, notificationsSeenAt: Date.now() }));
+  }, []);
+
   const value = useMemo(
     () => ({
       ready,
@@ -191,6 +207,8 @@ export function SwipeProvider({
       toggleFavorite,
       block,
       saveCompliment,
+      setSort,
+      markNotificationsSeen,
     }),
     [
       ready,
@@ -205,6 +223,8 @@ export function SwipeProvider({
       toggleFavorite,
       block,
       saveCompliment,
+      setSort,
+      markNotificationsSeen,
     ],
   );
 
