@@ -1,27 +1,47 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState, type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppButton } from '../components/AppButton';
-import { AppText } from '../components/AppText';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useState, type ReactNode } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
+import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppButton } from "../components/AppButton";
+import { AppText } from "../components/AppText";
+import { RangeSlider } from "../components/RangeSlider";
 import {
   ACTIVE_OPTIONS,
   activeFilterCount,
-  AGE_BUCKETS,
+  AGE_MAX,
+  AGE_MIN,
+  ageLabel,
   DEFAULT_FILTERS,
-  DISTANCES,
-  HEIGHT_BUCKETS,
+  DISTANCE_MAX,
+  DISTANCE_MIN,
+  distanceLabel,
+  HEIGHT_MAX,
+  HEIGHT_MIN,
+  heightRangeLabel,
   OPTIONS,
   type Filters,
-} from '../filters/filters';
-import { DRINKING_LABEL, MARITAL_LABEL, PERSONALITY_NAME, SMOKING_LABEL } from '../profiles/extras';
-import type { ProfileMarital } from '../profiles/types';
-import { useWallet } from '../store/WalletProvider';
-import { useTheme } from '../theme/ThemeProvider';
-import { GoldSheet } from './GoldSheet';
+} from "../filters/filters";
+import {
+  DRINKING_LABEL,
+  MARITAL_LABEL,
+  PERSONALITY_NAME,
+  SMOKING_LABEL,
+} from "../profiles/extras";
+import type { ProfileMarital } from "../profiles/types";
+import { useWallet } from "../store/WalletProvider";
+import { useTheme } from "../theme/ThemeProvider";
+import { GoldSheet } from "./GoldSheet";
 
-// Full-screen Filters: basic filters for everyone, advanced ones for Gold members.
-// Changes are a draft until "Apply".
+// Filters, like dating apps do it: age + distance sliders on top, then one row per filter.
+// A row opens its own page (back · title · Clear). Everything is a draft until "Apply filters".
 
 type Props = {
   visible: boolean;
@@ -30,345 +50,718 @@ type Props = {
   onApply: (filters: Filters) => void;
 };
 
-export function FiltersModal({ visible, value, onClose, onApply }: Props) {
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      {visible ? <FiltersBody value={value} onClose={onClose} onApply={onApply} /> : null}
-    </Modal>
-  );
+export function FiltersModal(props: Props) {
+  return props.visible ? <FiltersBody {...props} /> : null;
 }
 
 type ListKey =
-  | 'religions'
-  | 'ethnicities'
-  | 'nationalities'
-  | 'languages'
-  | 'education'
-  | 'professions'
-  | 'interests'
-  | 'personality'
-  | 'drinking'
-  | 'smoking';
+  | "religions"
+  | "ethnicities"
+  | "nationalities"
+  | "marital"
+  | "languages"
+  | "education"
+  | "professions"
+  | "interests"
+  | "personality"
+  | "drinking"
+  | "smoking";
+type PageKey = ListKey | "height" | "children" | "photos" | "active";
 
-const MARITAL_KEYS: ProfileMarital[] = ['neverMarried', 'divorced', 'widowed'];
+type Option = { key: string; label: string };
+const opts = (list: string[], label?: (v: string) => string): Option[] =>
+  list.map((v) => ({ key: v, label: label ? label(v) : v }));
 
-function FiltersBody({ value, onClose, onApply }: Omit<Props, 'visible'>) {
+const MARITAL_KEYS: ProfileMarital[] = ["neverMarried", "divorced", "widowed"];
+
+const LISTS: Record<ListKey, { title: string; options: Option[] }> = {
+  religions: { title: "Religion", options: opts(OPTIONS.religions) },
+  ethnicities: { title: "Ethnicity", options: opts(OPTIONS.ethnicities) },
+  nationalities: { title: "Nationality", options: opts(OPTIONS.nationalities) },
+  marital: {
+    title: "Marital status",
+    options: opts(MARITAL_KEYS, (m) => MARITAL_LABEL[m as ProfileMarital]),
+  },
+  languages: { title: "Languages", options: opts(OPTIONS.languages) },
+  education: { title: "Education", options: opts(OPTIONS.education) },
+  professions: { title: "Profession", options: opts(OPTIONS.professions) },
+  interests: { title: "Interests", options: opts(OPTIONS.interests) },
+  personality: {
+    title: "Personality",
+    options: opts(
+      OPTIONS.personality,
+      (v) => `${v} · ${PERSONALITY_NAME[v] ?? ""}`,
+    ),
+  },
+  drinking: {
+    title: "Alcohol",
+    options: opts(Object.keys(DRINKING_LABEL), (v) => DRINKING_LABEL[v] ?? v),
+  },
+  smoking: {
+    title: "Smoking",
+    options: opts(Object.keys(SMOKING_LABEL), (v) => SMOKING_LABEL[v] ?? v),
+  },
+};
+
+const CHILDREN: { key: Filters["children"]; label: string }[] = [
+  { key: "any", label: "Any" },
+  { key: "yes", label: "Has children" },
+  { key: "no", label: "No children" },
+];
+const PHOTOS: { key: Filters["photos"]; label: string }[] = [
+  { key: "any", label: "Everyone" },
+  { key: "clear", label: "Without blurred photos" },
+  { key: "blurred", label: "With blurred photos" },
+];
+
+const BASIC_ROWS: PageKey[] = [
+  "religions",
+  "ethnicities",
+  "nationalities",
+  "height",
+  "marital",
+  "children",
+  "languages",
+  "education",
+  "professions",
+  "interests",
+  "personality",
+  "drinking",
+  "smoking",
+  "photos",
+];
+
+function pageTitle(k: PageKey) {
+  if (k === "height") return "Height";
+  if (k === "children") return "Children";
+  if (k === "photos") return "Photos";
+  if (k === "active") return "Recently active";
+  return LISTS[k].title;
+}
+
+function summary(k: PageKey, f: Filters) {
+  if (k === "height")
+    return f.heightMin === HEIGHT_MIN && f.heightMax === HEIGHT_MAX
+      ? "Any"
+      : heightRangeLabel(f.heightMin, f.heightMax);
+  if (k === "children")
+    return CHILDREN.find((c) => c.key === f.children)?.label ?? "Any";
+  if (k === "photos")
+    return PHOTOS.find((c) => c.key === f.photos)?.label ?? "Everyone";
+  if (k === "active")
+    return ACTIVE_OPTIONS.find((o) => o.key === f.active)?.label ?? "Any time";
+  const picked = f[k] as string[];
+  if (picked.length === 0) return "Any";
+  const labels = picked.map(
+    (v) => LISTS[k].options.find((o) => o.key === v)?.label ?? v,
+  );
+  return picked.length <= 2 ? labels.join(", ") : `${picked.length} selected`;
+}
+
+function isSet(k: PageKey, f: Filters) {
+  return summary(k, f) !== summary(k, DEFAULT_FILTERS);
+}
+
+function FiltersBody({ value, onClose, onApply }: Props) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { wallet } = useWallet();
   const [draft, setDraft] = useState<Filters>(value);
+  const [page, setPage] = useState<PageKey | null>(null);
   const [goldOpen, setGoldOpen] = useState(false);
   const count = activeFilterCount(draft);
 
-  const set = (patch: Partial<Filters>) => setDraft((d) => ({ ...d, ...patch }));
-  const toggleIn = (key: ListKey, v: string) =>
-    setDraft((d) => {
-      const list = d[key] as string[];
-      const next = list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
-      return { ...d, [key]: next } as Filters;
-    });
+  const set = (patch: Partial<Filters>) =>
+    setDraft((d) => ({ ...d, ...patch }));
+
+  const back = () => {
+    if (page) setPage(null);
+    else onClose();
+  };
+
+  const openRow = (k: PageKey) => {
+    if (k === "active" && !wallet.gold) {
+      setGoldOpen(true);
+      return;
+    }
+    if (__DEV__) console.log(`[filters] open ${k}`);
+    setPage(k);
+  };
 
   const gold = (patch: Partial<Filters>) => {
     if (!wallet.gold) {
       setGoldOpen(true);
-      if (__DEV__) console.log('[filters] advanced filter tapped without Gold');
+      if (__DEV__) console.log("[filters] advanced filter tapped without Gold");
       return;
     }
     set(patch);
   };
 
+  const clearPage = (k: PageKey) => {
+    if (k === "height") set({ heightMin: HEIGHT_MIN, heightMax: HEIGHT_MAX });
+    else if (k === "children") set({ children: "any" });
+    else if (k === "photos") set({ photos: "any" });
+    else if (k === "active") set({ active: "any" });
+    else set({ [k]: [] } as Partial<Filters>);
+  };
+
+  const toggle = (k: ListKey, v: string) =>
+    setDraft((d) => {
+      const list = d[k] as string[];
+      const next = list.includes(v)
+        ? list.filter((x) => x !== v)
+        : [...list, v];
+      return { ...d, [k]: next } as Filters;
+    });
+
   return (
-    <View style={[styles.root, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} style={styles.headerBtn}>
-          <Ionicons name="close" size={26} color={colors.text} />
-        </Pressable>
-        <AppText variant="heading" style={styles.flex}>
-          Filters{count ? ` (${count})` : ''}
-        </AppText>
-        <Pressable onPress={() => setDraft(DEFAULT_FILTERS)} accessibilityRole="button" hitSlop={10} disabled={count === 0}>
-          <AppText variant="body" weight="semibold" color={count ? colors.primary : colors.textSubtle}>
-            Reset
-          </AppText>
-        </Pressable>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <Group title="Age" hint="All ages" active={draft.ages.length > 0} onClear={() => set({ ages: [] })}>
-          <Chips
-            options={AGE_BUCKETS.map((b) => ({ key: b.key, label: b.key }))}
-            selected={draft.ages}
-            onToggle={(k) =>
-              set({ ages: draft.ages.includes(k) ? draft.ages.filter((a) => a !== k) : [...draft.ages, k] })
-            }
-          />
-        </Group>
-
-        <Group title="Distance" hint="Anywhere" active={draft.distance !== null} onClear={() => set({ distance: null })}>
-          <Chips
-            options={DISTANCES.map((d) => ({ key: String(d.km), label: d.label }))}
-            selected={[String(draft.distance)]}
-            onToggle={(k) => set({ distance: k === 'null' ? null : Number(k) })}
-          />
-        </Group>
-
-        <ListGroup title="Religion" k="religions" options={OPTIONS.religions} draft={draft} toggle={toggleIn} set={set} />
-        <ListGroup title="Ethnicity" k="ethnicities" options={OPTIONS.ethnicities} draft={draft} toggle={toggleIn} set={set} />
-        <ListGroup title="Nationality" k="nationalities" options={OPTIONS.nationalities} draft={draft} toggle={toggleIn} set={set} />
-
-        <Group title="Height" hint="Any height" active={draft.heights.length > 0} onClear={() => set({ heights: [] })}>
-          <Chips
-            options={HEIGHT_BUCKETS.map((b) => ({ key: b.key, label: b.label }))}
-            selected={draft.heights}
-            onToggle={(k) =>
-              set({ heights: draft.heights.includes(k) ? draft.heights.filter((h) => h !== k) : [...draft.heights, k] })
-            }
-          />
-        </Group>
-
-        <Group title="Marital status" hint="Any" active={draft.marital.length > 0} onClear={() => set({ marital: [] })}>
-          <Chips
-            options={MARITAL_KEYS.map((m) => ({ key: m, label: MARITAL_LABEL[m] }))}
-            selected={draft.marital}
-            onToggle={(k) =>
-              set({ marital: draft.marital.includes(k) ? draft.marital.filter((m) => m !== k) : [...draft.marital, k] })
-            }
-          />
-        </Group>
-
-        <Group title="Children" hint="Any" active={draft.children !== 'any'} onClear={() => set({ children: 'any' })}>
-          <Chips
-            options={[
-              { key: 'any', label: 'Any' },
-              { key: 'yes', label: 'Has children' },
-              { key: 'no', label: 'No children' },
-            ]}
-            selected={[draft.children]}
-            onToggle={(k) => set({ children: k })}
-          />
-        </Group>
-
-        <ListGroup title="Languages" k="languages" options={OPTIONS.languages} draft={draft} toggle={toggleIn} set={set} />
-        <ListGroup title="Education" k="education" options={OPTIONS.education} draft={draft} toggle={toggleIn} set={set} />
-        <ListGroup title="Profession" k="professions" options={OPTIONS.professions} draft={draft} toggle={toggleIn} set={set} />
-        <ListGroup title="Interests" k="interests" options={OPTIONS.interests} draft={draft} toggle={toggleIn} set={set} />
-        <ListGroup
-          title="Personality"
-          k="personality"
-          options={OPTIONS.personality}
-          labels={(v) => `${v} · ${PERSONALITY_NAME[v] ?? ''}`}
-          draft={draft}
-          toggle={toggleIn}
-          set={set}
-        />
-        <ListGroup
-          title="Alcohol"
-          k="drinking"
-          options={Object.keys(DRINKING_LABEL)}
-          labels={(v) => DRINKING_LABEL[v] ?? v}
-          draft={draft}
-          toggle={toggleIn}
-          set={set}
-        />
-        <ListGroup
-          title="Smoking"
-          k="smoking"
-          options={Object.keys(SMOKING_LABEL)}
-          labels={(v) => SMOKING_LABEL[v] ?? v}
-          draft={draft}
-          toggle={toggleIn}
-          set={set}
-        />
-
-        <Group title="Photos" hint="Everyone" active={draft.photos !== 'any'} onClear={() => set({ photos: 'any' })}>
-          <Chips
-            options={[
-              { key: 'any', label: 'Everyone' },
-              { key: 'clear', label: 'Without blurred photos' },
-              { key: 'blurred', label: 'With blurred photos' },
-            ]}
-            selected={[draft.photos]}
-            onToggle={(k) => set({ photos: k })}
-          />
-        </Group>
-
-        {/* ---------- Gold ---------- */}
-        <View style={styles.goldTitle}>
-          <View style={[styles.goldBadge, { backgroundColor: colors.gold }]}>
-            <Ionicons name="star" size={12} color={colors.onPhoto} />
-            <AppText variant="caption" weight="bold" color={colors.onPhoto}>
-              GOLD
-            </AppText>
-          </View>
-          <AppText variant="heading">Advanced filters</AppText>
-        </View>
-        {!wallet.gold ? (
-          <Pressable
-            onPress={() => setGoldOpen(true)}
-            accessibilityRole="button"
-            style={[styles.goldCard, { backgroundColor: colors.goldSoft, borderColor: colors.gold }]}
+    // Android back button → back to the list first, then closes.
+    <Modal
+      visible
+      animationType="slide"
+      onRequestClose={back}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
+      <View
+        style={[
+          styles.root,
+          { backgroundColor: colors.bg, paddingTop: insets.top },
+        ]}
+      >
+        {page === null ? (
+          <Animated.View
+            key="main"
+            entering={FadeIn.duration(160)}
+            style={styles.root}
           >
-            <Ionicons name="lock-closed" size={20} color={colors.gold} />
-            <AppText variant="bodySmall" weight="medium" style={styles.flex}>
-              Get Yonder Gold to use these filters.
-            </AppText>
-            <Ionicons name="chevron-forward" size={18} color={colors.gold} />
-          </Pressable>
-        ) : null}
+            <Header
+              left={<HeaderIcon icon="close" label="Close" onPress={onClose} />}
+              title={`Filters${count ? ` (${count})` : ""}`}
+              right={
+                <HeaderText
+                  label="Reset"
+                  disabled={count === 0}
+                  onPress={() => setDraft(DEFAULT_FILTERS)}
+                />
+              }
+            />
+            <ScrollView contentContainerStyle={styles.content}>
+              <Card>
+                <View style={styles.sliderHead}>
+                  <AppText variant="body" weight="semibold">
+                    Age
+                  </AppText>
+                  <AppText
+                    variant="body"
+                    weight="semibold"
+                    color={colors.primary}
+                  >
+                    {ageLabel(draft.ageMin, draft.ageMax)}
+                  </AppText>
+                </View>
+                <RangeSlider
+                  min={AGE_MIN}
+                  max={AGE_MAX}
+                  low={draft.ageMin}
+                  high={draft.ageMax}
+                  minGap={1}
+                  onChange={(l, h) => set({ ageMin: l, ageMax: h })}
+                />
+              </Card>
 
-        <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <SwitchRow label="Completed bio" locked={!wallet.gold} value={draft.completeBio} onChange={(v) => gold({ completeBio: v })} />
-          <SwitchRow label="ID and age verified" locked={!wallet.gold} value={draft.verified} onChange={(v) => gold({ verified: v })} />
-          <SwitchRow label="Gold members" locked={!wallet.gold} value={draft.goldOnly} onChange={(v) => gold({ goldOnly: v })} />
-          <SwitchRow label="Just joined" locked={!wallet.gold} value={draft.justJoined} onChange={(v) => gold({ justJoined: v })} last />
-        </View>
+              <Card>
+                <View style={styles.sliderHead}>
+                  <AppText variant="body" weight="semibold">
+                    Maximum distance
+                  </AppText>
+                  <AppText
+                    variant="body"
+                    weight="semibold"
+                    color={colors.primary}
+                  >
+                    {distanceLabel(draft.distance)}
+                  </AppText>
+                </View>
+                <RangeSlider
+                  min={DISTANCE_MIN}
+                  max={DISTANCE_MAX}
+                  high={draft.distance ?? DISTANCE_MAX}
+                  onChange={(_, h) =>
+                    set({ distance: h >= DISTANCE_MAX ? null : h })
+                  }
+                />
+                <AppText variant="caption" muted>
+                  If there aren’t enough people nearby, we show people a bit
+                  further away.
+                </AppText>
+              </Card>
 
-        <Group title="Recently active" hint="Any time" active={draft.active !== 'any'} onClear={() => set({ active: 'any' })} locked={!wallet.gold}>
-          <Chips
-            options={ACTIVE_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
-            selected={[draft.active]}
-            onToggle={(k) => gold({ active: k })}
-          />
-        </Group>
-      </ScrollView>
+              <View
+                style={[
+                  styles.group,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                {BASIC_ROWS.map((k, i) => (
+                  <Row
+                    key={k}
+                    title={pageTitle(k)}
+                    value={summary(k, draft)}
+                    active={isSet(k, draft)}
+                    first={i === 0}
+                    onPress={() => openRow(k)}
+                  />
+                ))}
+              </View>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12, borderTopColor: colors.border, backgroundColor: colors.bg }]}>
-        <AppButton
-          label="Apply filters"
-          onPress={() => {
-            onApply(draft);
-            onClose();
-          }}
-        />
+              {/* ---------- Gold ---------- */}
+              <View style={styles.goldTitle}>
+                <View
+                  style={[styles.goldBadge, { backgroundColor: colors.gold }]}
+                >
+                  <Ionicons name="star" size={12} color={colors.onPhoto} />
+                  <AppText
+                    variant="caption"
+                    weight="bold"
+                    color={colors.onPhoto}
+                  >
+                    GOLD
+                  </AppText>
+                </View>
+                <AppText variant="heading">Advanced filters</AppText>
+              </View>
+              {!wallet.gold ? (
+                <Pressable
+                  onPress={() => setGoldOpen(true)}
+                  accessibilityRole="button"
+                  style={[
+                    styles.goldCard,
+                    {
+                      backgroundColor: colors.goldSoft,
+                      borderColor: colors.gold,
+                    },
+                  ]}
+                >
+                  <Ionicons name="lock-closed" size={20} color={colors.gold} />
+                  <AppText
+                    variant="bodySmall"
+                    weight="medium"
+                    style={styles.flex}
+                  >
+                    Get Yonder Gold to use these filters.
+                  </AppText>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={colors.gold}
+                  />
+                </Pressable>
+              ) : null}
+              <View
+                style={[
+                  styles.group,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <SwitchRow
+                  first
+                  label="Completed bio"
+                  locked={!wallet.gold}
+                  value={draft.completeBio}
+                  onChange={(v) => gold({ completeBio: v })}
+                />
+                <SwitchRow
+                  label="ID and age verified"
+                  locked={!wallet.gold}
+                  value={draft.verified}
+                  onChange={(v) => gold({ verified: v })}
+                />
+                <SwitchRow
+                  label="Gold members"
+                  locked={!wallet.gold}
+                  value={draft.goldOnly}
+                  onChange={(v) => gold({ goldOnly: v })}
+                />
+                <SwitchRow
+                  label="Just joined"
+                  locked={!wallet.gold}
+                  value={draft.justJoined}
+                  onChange={(v) => gold({ justJoined: v })}
+                />
+                <Row
+                  title="Recently active"
+                  value={summary("active", draft)}
+                  active={draft.active !== "any"}
+                  locked={!wallet.gold}
+                  onPress={() => openRow("active")}
+                />
+              </View>
+            </ScrollView>
+
+            <View
+              style={[
+                styles.footer,
+                {
+                  paddingBottom: insets.bottom + 12,
+                  borderTopColor: colors.border,
+                },
+              ]}
+            >
+              <AppButton
+                label="Apply filters"
+                onPress={() => {
+                  onApply(draft);
+                  onClose();
+                }}
+              />
+            </View>
+          </Animated.View>
+        ) : (
+          <Animated.View
+            key={page}
+            entering={SlideInRight.duration(220)}
+            style={styles.root}
+          >
+            <Header
+              left={
+                <HeaderIcon
+                  icon="arrow-back"
+                  label="Back"
+                  onPress={() => setPage(null)}
+                />
+              }
+              title={pageTitle(page)}
+              right={
+                <HeaderText
+                  label="Clear"
+                  disabled={!isSet(page, draft)}
+                  onPress={() => clearPage(page)}
+                />
+              }
+            />
+            <ScrollView
+              contentContainerStyle={[
+                styles.content,
+                { paddingBottom: insets.bottom + 24 },
+              ]}
+            >
+              <PageContent
+                page={page}
+                draft={draft}
+                set={set}
+                toggle={toggle}
+              />
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        <GoldSheet visible={goldOpen} onClose={() => setGoldOpen(false)} />
       </View>
+    </Modal>
+  );
+}
 
-      <GoldSheet visible={goldOpen} onClose={() => setGoldOpen(false)} />
+function PageContent({
+  page,
+  draft,
+  set,
+  toggle,
+}: {
+  page: PageKey;
+  draft: Filters;
+  set: (patch: Partial<Filters>) => void;
+  toggle: (k: ListKey, v: string) => void;
+}) {
+  const colors = useTheme();
+
+  if (page === "height") {
+    return (
+      <Card>
+        <View style={styles.sliderHead}>
+          <AppText variant="body" weight="semibold">
+            Height
+          </AppText>
+          <AppText variant="body" weight="semibold" color={colors.primary}>
+            {heightRangeLabel(draft.heightMin, draft.heightMax)}
+          </AppText>
+        </View>
+        <RangeSlider
+          min={HEIGHT_MIN}
+          max={HEIGHT_MAX}
+          low={draft.heightMin}
+          high={draft.heightMax}
+          minGap={1}
+          onChange={(l, h) => set({ heightMin: l, heightMax: h })}
+        />
+      </Card>
+    );
+  }
+
+  if (page === "children" || page === "photos" || page === "active") {
+    const list: Option[] =
+      page === "children"
+        ? CHILDREN
+        : page === "photos"
+          ? PHOTOS
+          : ACTIVE_OPTIONS;
+    const current =
+      page === "children"
+        ? draft.children
+        : page === "photos"
+          ? draft.photos
+          : draft.active;
+    return (
+      <View
+        style={[
+          styles.group,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        {list.map((o, i) => (
+          <OptionRow
+            key={o.key}
+            label={o.label}
+            selected={current === o.key}
+            radio
+            first={i === 0}
+            onPress={() =>
+              set(
+                page === "children"
+                  ? { children: o.key as Filters["children"] }
+                  : page === "photos"
+                    ? { photos: o.key as Filters["photos"] }
+                    : { active: o.key as Filters["active"] },
+              )
+            }
+          />
+        ))}
+      </View>
+    );
+  }
+
+  const picked = draft[page] as string[];
+  return (
+    <>
+      <AppText variant="caption" muted style={styles.hint}>
+        Pick as many as you like.
+      </AppText>
+      <View
+        style={[
+          styles.group,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        {LISTS[page].options.map((o, i) => (
+          <OptionRow
+            key={o.key}
+            label={o.label}
+            selected={picked.includes(o.key)}
+            first={i === 0}
+            onPress={() => toggle(page, o.key)}
+          />
+        ))}
+      </View>
+    </>
+  );
+}
+
+// ---------- small pieces ----------
+
+function Header({
+  left,
+  title,
+  right,
+}: {
+  left: ReactNode;
+  title: string;
+  right: ReactNode;
+}) {
+  const colors = useTheme();
+  return (
+    <View style={[styles.header, { borderBottomColor: colors.border }]}>
+      <View style={styles.side}>{left}</View>
+      <AppText
+        variant="heading"
+        align="center"
+        numberOfLines={1}
+        style={styles.flex}
+      >
+        {title}
+      </AppText>
+      <View style={[styles.side, styles.sideRight]}>{right}</View>
     </View>
   );
 }
 
-function ListGroup({
-  title,
-  k,
-  options,
-  labels,
-  draft,
-  toggle,
-  set,
+function HeaderIcon({
+  icon,
+  label,
+  onPress,
 }: {
-  title: string;
-  k: ListKey;
-  options: string[];
-  labels?: (v: string) => string;
-  draft: Filters;
-  toggle: (key: ListKey, v: string) => void;
-  set: (patch: Partial<Filters>) => void;
-}) {
-  const selected = draft[k] as string[];
-  return (
-    <Group title={title} hint="Any" active={selected.length > 0} onClear={() => set({ [k]: [] } as Partial<Filters>)}>
-      <Chips
-        options={options.map((o) => ({ key: o, label: labels ? labels(o) : o }))}
-        selected={selected}
-        onToggle={(v) => toggle(k, v)}
-        collapse
-      />
-    </Group>
-  );
-}
-
-function Group({
-  title,
-  hint,
-  active,
-  onClear,
-  locked,
-  children,
-}: {
-  title: string;
-  hint: string;
-  active: boolean;
-  onClear: () => void;
-  locked?: boolean;
-  children: ReactNode;
+  icon: "close" | "arrow-back";
+  label: string;
+  onPress: () => void;
 }) {
   const colors = useTheme();
   return (
-    <View style={[styles.group, styles.groupPad, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={styles.groupHead}>
-        <AppText variant="body" weight="semibold" style={styles.flex}>
-          {title}
-        </AppText>
-        {locked ? <Ionicons name="lock-closed" size={16} color={colors.gold} /> : null}
-        {active ? (
-          <Pressable onPress={onClear} hitSlop={8} accessibilityRole="button">
-            <AppText variant="bodySmall" weight="semibold" color={colors.primary}>
-              Clear
-            </AppText>
-          </Pressable>
-        ) : (
-          <AppText variant="bodySmall" muted>
-            {hint}
-          </AppText>
-        )}
-      </View>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={10}
+      style={styles.headerBtn}
+    >
+      <Ionicons name={icon} size={25} color={colors.text} />
+    </Pressable>
+  );
+}
+
+function HeaderText({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled: boolean;
+}) {
+  const colors = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      hitSlop={10}
+    >
+      <AppText
+        variant="body"
+        weight="semibold"
+        color={disabled ? colors.textSubtle : colors.primary}
+      >
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
+function Card({ children }: { children: ReactNode }) {
+  const colors = useTheme();
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
       {children}
     </View>
   );
 }
 
-const COLLAPSED = 10;
-
-function Chips<K extends string>({
-  options,
-  selected,
-  onToggle,
-  collapse,
+function Row({
+  title,
+  value,
+  active,
+  locked,
+  first,
+  onPress,
 }: {
-  options: { key: K; label: string }[];
-  selected: readonly string[];
-  onToggle: (key: K) => void;
-  collapse?: boolean;
+  title: string;
+  value: string;
+  active: boolean;
+  locked?: boolean;
+  first?: boolean;
+  onPress: () => void;
 }) {
   const colors = useTheme();
-  const [open, setOpen] = useState(false);
-  const canCollapse = collapse && options.length > COLLAPSED + 2;
-  // Selected ones always stay visible when collapsed.
-  const shown =
-    canCollapse && !open
-      ? [...options.slice(0, COLLAPSED), ...options.slice(COLLAPSED).filter((o) => selected.includes(o.key))]
-      : options;
-
   return (
-    <View style={styles.chips}>
-      {shown.map((o) => {
-        const on = selected.includes(o.key);
-        return (
-          <Pressable
-            key={o.key}
-            onPress={() => onToggle(o.key)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: on }}
-            style={[
-              styles.chip,
-              { backgroundColor: on ? colors.primarySoft : colors.card, borderColor: on ? colors.primary : colors.border },
-            ]}
-          >
-            {on ? <Ionicons name="checkmark" size={14} color={colors.primary} /> : null}
-            <AppText variant="bodySmall" weight="medium" color={on ? colors.primary : colors.text}>
-              {o.label}
-            </AppText>
-          </Pressable>
-        );
-      })}
-      {canCollapse ? (
-        <Pressable onPress={() => setOpen((v) => !v)} accessibilityRole="button" style={styles.more}>
-          <AppText variant="bodySmall" weight="semibold" color={colors.primary}>
-            {open ? 'Show less' : `Show all (${options.length})`}
-          </AppText>
-        </Pressable>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}: ${value}`}
+      style={({ pressed }) => [
+        styles.row,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+        { opacity: pressed ? 0.6 : 1 },
+      ]}
+    >
+      <AppText variant="body" style={styles.flex}>
+        {title}
+      </AppText>
+      {locked ? (
+        <Ionicons name="lock-closed" size={16} color={colors.gold} />
       ) : null}
-    </View>
+      <AppText
+        variant="bodySmall"
+        weight={active ? "semibold" : "regular"}
+        color={active ? colors.primary : colors.textMuted}
+        numberOfLines={1}
+        style={styles.rowValue}
+      >
+        {value}
+      </AppText>
+      <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+    </Pressable>
+  );
+}
+
+function OptionRow({
+  label,
+  selected,
+  radio,
+  first,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  radio?: boolean;
+  first?: boolean;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  const icon = radio
+    ? selected
+      ? "radio-button-on"
+      : "radio-button-off"
+    : selected
+      ? "checkbox"
+      : "square-outline";
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole={radio ? "radio" : "checkbox"}
+      accessibilityState={radio ? { selected } : { checked: selected }}
+      style={[
+        styles.row,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+      ]}
+    >
+      <AppText
+        variant="body"
+        weight={selected ? "semibold" : "regular"}
+        style={styles.flex}
+      >
+        {label}
+      </AppText>
+      <Ionicons
+        name={icon}
+        size={22}
+        color={selected ? colors.primary : colors.textSubtle}
+      />
+    </Pressable>
   );
 }
 
@@ -377,13 +770,13 @@ function SwitchRow({
   value,
   locked,
   onChange,
-  last,
+  first,
 }: {
   label: string;
   value: boolean;
   locked: boolean;
   onChange: (v: boolean) => void;
-  last?: boolean;
+  first?: boolean;
 }) {
   const colors = useTheme();
   return (
@@ -391,12 +784,20 @@ function SwitchRow({
       onPress={() => onChange(!value)}
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
-      style={[styles.switchRow, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+      style={[
+        styles.row,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+      ]}
     >
       <AppText variant="body" style={styles.flex}>
         {label}
       </AppText>
-      {locked ? <Ionicons name="lock-closed" size={16} color={colors.gold} /> : null}
+      {locked ? (
+        <Ionicons name="lock-closed" size={16} color={colors.gold} />
+      ) : null}
       <Switch
         value={value}
         onValueChange={onChange}
@@ -415,85 +816,82 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    minHeight: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  side: {
+    width: 72,
+    justifyContent: "center",
+  },
+  sideRight: {
+    alignItems: "flex-end",
+    paddingRight: 4,
+  },
   headerBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     padding: 12,
     gap: 12,
     paddingBottom: 24,
   },
+  card: {
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  sliderHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   group: {
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
-  groupPad: {
-    padding: 16,
-    gap: 12,
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    minHeight: 54,
   },
-  groupHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  rowValue: {
+    maxWidth: "45%",
   },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  more: {
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 7,
+  hint: {
+    marginLeft: 4,
   },
   goldTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginTop: 8,
   },
   goldBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
   goldCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    minHeight: 56,
   },
   footer: {
     paddingHorizontal: 16,

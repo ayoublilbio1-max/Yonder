@@ -3,6 +3,14 @@ import { StyleSheet, View } from "react-native";
 import { AppButton } from "../components/AppButton";
 import { AppText } from "../components/AppText";
 import { useToast } from "../components/Toast";
+import {
+  AGE_MAX,
+  AGE_MIN,
+  ageLabel,
+  distanceLabel,
+  widerAge,
+  widerDistance,
+} from "../filters/filters";
 import { useTheme } from "../theme/ThemeProvider";
 import { useSwipe } from "./SwipeProvider";
 
@@ -10,15 +18,39 @@ import { useSwipe } from "./SwipeProvider";
 export function EmptyDeck() {
   const colors = useTheme();
   const toast = useToast();
-  const { rewindPassed } = useSwipe();
+  const { rewindPassed, saved, setFilters } = useSwipe();
+  const f = saved.filters;
 
-  const more = (message: string) => {
+  const rewind = () => {
     const count = rewindPassed();
     toast.show(
       count > 0
-        ? message
+        ? "Showing the profiles you passed again"
         : "You liked everyone here! New people join every day.",
     );
+  };
+
+  // Each button really changes the search; when there is nothing left to widen, it rewinds instead.
+  const moreDistance = () => {
+    if (f.distance === null) return rewind();
+    const next = widerDistance(f);
+    setFilters(next);
+    toast.show(`Distance: ${distanceLabel(next.distance).toLowerCase()}`);
+    if (__DEV__)
+      console.log(
+        `[deck] empty → distance ${f.distance} → ${next.distance ?? "any"}`,
+      );
+  };
+
+  const moreAge = () => {
+    if (f.ageMin === AGE_MIN && f.ageMax === AGE_MAX) return rewind();
+    const next = widerAge(f);
+    setFilters(next);
+    toast.show(`Age: ${ageLabel(next.ageMin, next.ageMax)}`);
+    if (__DEV__)
+      console.log(
+        `[deck] empty → age ${ageLabel(f.ageMin, f.ageMax)} → ${ageLabel(next.ageMin, next.ageMax)}`,
+      );
   };
 
   return (
@@ -36,19 +68,19 @@ export function EmptyDeck() {
         <AppButton
           label="Increase distance"
           icon="navigate-outline"
-          onPress={() => more("Showing people a bit further away")}
+          onPress={moreDistance}
         />
         <AppButton
           label="Widen age range"
           icon="options-outline"
           variant="secondary"
-          onPress={() => more("Showing people in a wider age range")}
+          onPress={moreAge}
         />
         <AppButton
           label="Rewind passed profiles"
           icon="refresh-outline"
           variant="secondary"
-          onPress={() => more("Showing the profiles you passed again")}
+          onPress={rewind}
         />
       </View>
     </View>

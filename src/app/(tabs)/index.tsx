@@ -134,16 +134,20 @@ export default function SwipeScreen() {
     busyRef.current = false;
   }, [topId]);
 
-  const onSwiped = (action: SwipeAction) => {
-    busyRef.current = false;
-    if (!top) return;
-    progress.set(0);
+  // Sound + vibration the moment the swipe is decided (not when the card has finished leaving).
+  const onCommit = (action: SwipeAction) => {
+    playSound(action === "pass" ? "nope" : action);
     if (action === "superlike")
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
       );
     else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    playSound(action === "pass" ? "nope" : action);
+  };
+
+  const onSwiped = (action: SwipeAction) => {
+    busyRef.current = false;
+    if (!top) return;
+    progress.set(0);
     swipe(top.id, action);
   };
 
@@ -156,6 +160,7 @@ export default function SwipeScreen() {
     }
     busyRef.current = true;
     scrollRef.current?.scrollTo({ y: 0, animated: true });
+    onCommit(action);
     if (flingRef.current) flingRef.current(action);
     else onSwiped(action);
   };
@@ -295,6 +300,7 @@ export default function SwipeScreen() {
               isTop
               progress={progress}
               onSwiped={onSwiped}
+              onCommit={onCommit}
               onOpen={openMedia}
               registerFling={(fn) => {
                 flingRef.current = fn;

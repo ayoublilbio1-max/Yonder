@@ -57,10 +57,12 @@ export async function pickPhoto(
     });
 
     const dest = new File(photosFolder(), `photo_${Date.now()}.jpg`);
-    new File(saved.uri).copy(dest);
+    const tempFile = new File(saved.uri);
+    const bytes = tempFile.size ?? 0; // read before the copy (a fresh File object can report 0)
+    tempFile.copy(dest);
 
     if (__DEV__) {
-      const kb = Math.round((new File(dest.uri).size ?? 0) / 1024); // re-read: the size is known after the copy
+      const kb = Math.round((bytes || (dest.info().size ?? 0)) / 1024);
       console.log(
         `[photos] ${source} → ${asset.width}x${asset.height} → saved ${kb} KB · picking ${tPicked - t0}ms · processing ${Date.now() - tPicked}ms`,
       );

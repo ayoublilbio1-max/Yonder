@@ -42,7 +42,8 @@ type Props = {
   profile: Profile;
   isTop: boolean;
   progress: SharedValue<number>; // 0..1 how far the top card has moved (grows the card under it)
-  onSwiped: (action: SwipeAction) => void;
+  onSwiped: (action: SwipeAction) => void; // the card has left the screen
+  onCommit?: (action: SwipeAction) => void; // the swipe is decided (sound + vibration now, not at the end)
   onOpen?: () => void; // tap → full-screen media
   registerFling?: (fn: FlingFn | null) => void; // lets the buttons swipe the top card
 };
@@ -64,6 +65,7 @@ export function SwipeCard({
   isTop,
   progress,
   onSwiped,
+  onCommit,
   onOpen,
   registerFling,
 }: Props) {
@@ -79,6 +81,7 @@ export function SwipeCard({
   // Finger swipe: keep the finger's speed and slow down smoothly as it leaves.
   const fling = (action: SwipeAction, velocityX: number) => {
     "worklet";
+    if (onCommit) scheduleOnRN(onCommit, action);
     const dir = action === "like" ? 1 : -1;
     const toX = dir * width * 1.5;
     const remaining = Math.abs(toX - tx.get());
@@ -96,6 +99,7 @@ export function SwipeCard({
 
   const buttonFling = (action: SwipeAction) => {
     "worklet";
+    // (buttons call this from JS; the screen plays the sound itself before calling it)
     const done = (finished?: boolean) => {
       "worklet";
       if (finished) scheduleOnRN(onSwiped, action);

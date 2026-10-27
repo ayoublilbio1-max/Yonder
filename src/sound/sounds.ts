@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    createAudioPlayer,
-    setAudioModeAsync,
-    type AudioPlayer,
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer,
 } from "expo-audio";
 import { useSyncExternalStore } from "react";
 
@@ -72,16 +72,17 @@ export function preloadSounds() {
       if (__DEV__) console.log("[sound] audio mode failed", String(e));
     });
   }
-  (["like", "nope", "superlike"] as SoundName[]).forEach(playerFor);
+  (Object.keys(FILES) as SoundName[]).forEach(playerFor);
+  if (__DEV__) console.log("[sound] preloaded");
 }
 
 export function playSound(name: SoundName) {
   if (!enabled) return;
   try {
     const p = playerFor(name);
-    p.seekTo(0)
-      .then(() => p.play())
-      .catch(() => p.play());
+    // Don't wait for the seek: both calls go to the native player in order, so it starts at once.
+    p.seekTo(0).catch(() => {});
+    p.play();
     if (__DEV__) console.log(`[sound] ${name}`);
   } catch (e) {
     if (__DEV__) console.log(`[sound] ${name} failed`, String(e));
