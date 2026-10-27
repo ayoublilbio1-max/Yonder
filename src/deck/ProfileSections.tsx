@@ -17,7 +17,7 @@ import { useTheme } from "../theme/ThemeProvider";
 import { myInterestSet, similaritiesOf } from "./similarities";
 
 // Everything under the card on the Swipe page, in Muzz order:
-// intent · bio · verified · your similarities · about · interests · personality ·
+// intent · bio · verified · marital status & children · your similarities · about · interests · personality ·
 // education & career · languages · share · favorite / block / report.
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -116,11 +116,6 @@ export function ProfileSections({
 
   const aboutAll: { icon: IconName; label: string }[] = [
     { icon: "resize-outline", label: heightLabel(profile.heightCm) },
-    { icon: "ribbon-outline", label: MARITAL_LABEL[profile.marital] },
-    {
-      icon: "people-outline",
-      label: profile.hasChildren ? "Has children" : "No children",
-    },
     { icon: "sparkles-outline", label: profile.religion },
     { icon: "flame-outline", label: SMOKING_LABEL[profile.smoking] ?? "" },
     { icon: "wine-outline", label: DRINKING_LABEL[profile.drinking] ?? "" },
@@ -178,6 +173,16 @@ export function ProfileSections({
           </View>
         </Section>
       ) : null}
+
+      <Section title="Marital status & children" icon="ribbon-outline">
+        <View style={styles.chips}>
+          <Chip icon="ribbon-outline" label={MARITAL_LABEL[profile.marital]} />
+          <Chip
+            icon="people-outline"
+            label={profile.hasChildren ? "Has children" : "No children"}
+          />
+        </View>
+      </Section>
 
       <Section title="Your similarities" icon="heart-circle-outline">
         {similarities.length ? (

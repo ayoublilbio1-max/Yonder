@@ -6,13 +6,19 @@ import {
   lastActiveHours,
 } from "../profiles/extras";
 import { sessionRandom, setDistanceCap } from "../profiles/session";
-import type { Profile, ProfileGender, ProfileMarital } from "../profiles/types";
+import type {
+  Profile,
+  ProfileGender,
+  ProfileIntent,
+  ProfileMarital,
+} from "../profiles/types";
 
 // Filters for the Swipe deck + rule 9.4 "never an empty result".
 //
-// Hard filters (never faked): age, height, ethnicity, nationality, blurred photos, Gold filters.
-// Soft filters (rule 9.4, adjusted silently when too few people match): religion, marital status,
-// children, languages, education, profession, interests, personality, alcohol, smoking.
+// Free for everyone: age, distance, religion, ethnicity, nationality. Everything else is Gold.
+// Hard filters (never faked): age, height, ethnicity, nationality, blurred photos, Gold switches.
+// Soft filters (rule 9.4, adjusted silently when too few people match): looking for, religion,
+// marital status, children, languages, education, profession, interests, personality, alcohol, smoking.
 // An adjusted profile keeps its new details for the whole session, everywhere in the app.
 
 export const MIN_RESULTS = 30;
@@ -72,6 +78,7 @@ export type Filters = {
   ageMin: number;
   ageMax: number; // AGE_MAX = 50+
   distance: number | null; // km, null = anywhere
+  intents: ProfileIntent[];
   religions: string[];
   ethnicities: string[];
   nationalities: string[]; // origins, e.g. "French"
@@ -99,6 +106,7 @@ export const DEFAULT_FILTERS: Filters = {
   ageMin: AGE_MIN,
   ageMax: AGE_MAX,
   distance: null,
+  intents: [],
   religions: [],
   ethnicities: [],
   nationalities: [],
@@ -123,6 +131,7 @@ export const DEFAULT_FILTERS: Filters = {
 
 export function activeFilterCount(f: Filters) {
   const lists = [
+    f.intents,
     f.religions,
     f.ethnicities,
     f.nationalities,
@@ -150,14 +159,17 @@ export function activeFilterCount(f: Filters) {
   return lists + singles;
 }
 
-export function hasGoldFilters(f: Filters) {
-  return (
-    f.completeBio ||
-    f.verified ||
-    f.active !== "any" ||
-    f.goldOnly ||
-    f.justJoined
-  );
+// Without Gold only the free filters count (Gold ones stay saved for when Gold is bought).
+export function withoutGold(f: Filters): Filters {
+  return {
+    ...DEFAULT_FILTERS,
+    ageMin: f.ageMin,
+    ageMax: f.ageMax,
+    distance: f.distance,
+    religions: f.religions,
+    ethnicities: f.ethnicities,
+    nationalities: f.nationalities,
+  };
 }
 
 // Options shown in the Filters screen, most common first.
@@ -199,6 +211,7 @@ function pick<T>(p: Profile, field: string, list: readonly T[]): T {
 }
 
 function passesSoft(p: Profile, f: Filters) {
+  if (f.intents.length && !f.intents.includes(p.intent)) return false;
   if (f.religions.length && !f.religions.includes(p.religion)) return false;
   if (f.marital.length && !f.marital.includes(p.marital)) return false;
   if (f.children !== "any" && p.hasChildren !== (f.children === "yes"))
@@ -219,6 +232,8 @@ function passesSoft(p: Profile, f: Filters) {
 
 function adjust(p: Profile, f: Filters): Profile {
   const o: Partial<Profile> = {};
+  if (f.intents.length && !f.intents.includes(p.intent))
+    o.intent = pick(p, "intent", f.intents);
   if (f.religions.length && !f.religions.includes(p.religion))
     o.religion = pick(p, "religion", f.religions);
   if (f.marital.length && !f.marital.includes(p.marital))

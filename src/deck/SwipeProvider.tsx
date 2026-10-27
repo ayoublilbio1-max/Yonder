@@ -11,12 +11,14 @@ import {
 import {
   applyFilters,
   DEFAULT_FILTERS,
+  withoutGold,
   type FilterResult,
   type Filters,
 } from "../filters/filters";
 import { profileDraftKey } from "../onboarding/OnboardingProvider";
 import type { ProfileDraft } from "../onboarding/types";
 import type { Profile, ProfileGender } from "../profiles/types";
+import { useWallet } from "../store/WalletProvider";
 import { buildDeck } from "./buildDeck";
 import { sortDeck, type SortKey } from "./sort";
 
@@ -82,6 +84,7 @@ export function SwipeProvider({
   const [me, setMe] = useState<ProfileDraft>({});
   const [saved, setSaved] = useState<Saved>(EMPTY);
   const [sessionSwiped, setSessionSwiped] = useState<Swiped[]>([]);
+  const { wallet } = useWallet(); // WalletProvider wraps SwipeProvider in (tabs)/_layout
 
   useEffect(() => {
     let alive = true;
@@ -136,9 +139,13 @@ export function SwipeProvider({
     () => (ready ? buildDeck(show, new Set()) : []),
     [ready, show],
   );
+  const activeFilters = useMemo(
+    () => (wallet.gold ? saved.filters : withoutGold(saved.filters)),
+    [wallet.gold, saved.filters],
+  );
   const filtered = useMemo(
-    () => applyFilters(pool, saved.filters, show),
-    [pool, saved.filters, show],
+    () => applyFilters(pool, activeFilters, show),
+    [pool, activeFilters, show],
   );
   const deck = useMemo(
     () =>

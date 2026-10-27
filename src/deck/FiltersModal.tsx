@@ -8,6 +8,7 @@ import {
   Switch,
   View,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../components/AppButton";
@@ -29,13 +30,14 @@ import {
   OPTIONS,
   type Filters,
 } from "../filters/filters";
+import { INTENT_LABEL } from "../profiles/data";
 import {
   DRINKING_LABEL,
   MARITAL_LABEL,
   PERSONALITY_NAME,
   SMOKING_LABEL,
 } from "../profiles/extras";
-import type { ProfileMarital } from "../profiles/types";
+import type { ProfileIntent, ProfileMarital } from "../profiles/types";
 import { useWallet } from "../store/WalletProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { GoldSheet } from "./GoldSheet";
@@ -55,6 +57,7 @@ export function FiltersModal(props: Props) {
 }
 
 type ListKey =
+  | "intents"
   | "religions"
   | "ethnicities"
   | "nationalities"
@@ -73,8 +76,18 @@ const opts = (list: string[], label?: (v: string) => string): Option[] =>
   list.map((v) => ({ key: v, label: label ? label(v) : v }));
 
 const MARITAL_KEYS: ProfileMarital[] = ["neverMarried", "divorced", "widowed"];
+const INTENT_KEYS: ProfileIntent[] = [
+  "marriage",
+  "serious_relationship",
+  "for_fun",
+  "new_friends",
+];
 
 const LISTS: Record<ListKey, { title: string; options: Option[] }> = {
+  intents: {
+    title: "Looking for",
+    options: opts(INTENT_KEYS, (i) => INTENT_LABEL[i as ProfileIntent]),
+  },
   religions: { title: "Religion", options: opts(OPTIONS.religions) },
   ethnicities: { title: "Ethnicity", options: opts(OPTIONS.ethnicities) },
   nationalities: { title: "Nationality", options: opts(OPTIONS.nationalities) },
@@ -114,10 +127,11 @@ const PHOTOS: { key: Filters["photos"]; label: string }[] = [
   { key: "blurred", label: "With blurred photos" },
 ];
 
-const BASIC_ROWS: PageKey[] = [
-  "religions",
-  "ethnicities",
-  "nationalities",
+// Free for everyone (after the age + distance sliders).
+const BASIC_ROWS: PageKey[] = ["religions", "ethnicities", "nationalities"];
+// Yonder Gold.
+const GOLD_ROWS: PageKey[] = [
+  "intents",
   "height",
   "marital",
   "children",
@@ -129,6 +143,7 @@ const BASIC_ROWS: PageKey[] = [
   "drinking",
   "smoking",
   "photos",
+  "active",
 ];
 
 function pageTitle(k: PageKey) {
@@ -180,8 +195,9 @@ function FiltersBody({ value, onClose, onApply }: Props) {
   };
 
   const openRow = (k: PageKey) => {
-    if (k === "active" && !wallet.gold) {
+    if (GOLD_ROWS.includes(k) && !wallet.gold) {
       setGoldOpen(true);
+      if (__DEV__) console.log(`[filters] ${k} needs Gold`);
       return;
     }
     if (__DEV__) console.log(`[filters] open ${k}`);
@@ -223,7 +239,8 @@ function FiltersBody({ value, onClose, onApply }: Props) {
       statusBarTranslucent
       navigationBarTranslucent
     >
-      <View
+      {/* A Modal is its own native window on Android: gestures (the sliders) need their own root here. */}
+      <GestureHandlerRootView
         style={[
           styles.root,
           { backgroundColor: colors.bg, paddingTop: insets.top },
@@ -395,13 +412,16 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                   value={draft.justJoined}
                   onChange={(v) => gold({ justJoined: v })}
                 />
-                <Row
-                  title="Recently active"
-                  value={summary("active", draft)}
-                  active={draft.active !== "any"}
-                  locked={!wallet.gold}
-                  onPress={() => openRow("active")}
-                />
+                {GOLD_ROWS.map((k) => (
+                  <Row
+                    key={k}
+                    title={pageTitle(k)}
+                    value={summary(k, draft)}
+                    active={isSet(k, draft)}
+                    locked={!wallet.gold}
+                    onPress={() => openRow(k)}
+                  />
+                ))}
               </View>
             </ScrollView>
 
@@ -463,7 +483,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
         )}
 
         <GoldSheet visible={goldOpen} onClose={() => setGoldOpen(false)} />
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
