@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { playSound } from "../sound/sounds";
 import { formatUsd } from "../store/WalletProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { AppButton } from "./AppButton";
@@ -40,6 +41,7 @@ export function Checkout({ item, onClose, onPaid }: Props) {
         `[checkout] paying ${item.title} · ${item.total} · ${method} (demo)`,
       );
     setTimeout(() => {
+      playSound("purchase");
       setStage("done");
       onPaid(item);
     }, 1400);

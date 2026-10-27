@@ -22,13 +22,13 @@ import { useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
-import { NotInDemoModal } from "../../components/NotInDemoModal";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { actionGradients } from "../../constants/colors";
 import { BoostSheet } from "../../deck/BoostSheet";
 import { ComplimentSheet } from "../../deck/ComplimentSheet";
 import { EmptyDeck } from "../../deck/EmptyDeck";
+import { FiltersModal } from "../../deck/FiltersModal";
 import { MediaViewer } from "../../deck/MediaViewer";
 import { buildNotifications } from "../../deck/notifications";
 import { NotificationsModal } from "../../deck/NotificationsModal";
@@ -38,9 +38,11 @@ import { sortLabel } from "../../deck/sort";
 import { SortSheet } from "../../deck/SortSheet";
 import { SwipeCard, type FlingFn } from "../../deck/SwipeCard";
 import { useSwipe, type SwipeAction } from "../../deck/SwipeProvider";
+import { activeFilterCount } from "../../filters/filters";
 import { mainPhotoUri } from "../../profiles/data";
 import { isLocked } from "../../profiles/extras";
 import type { Profile } from "../../profiles/types";
+import { playSound, preloadSounds } from "../../sound/sounds";
 import { useBoostLeft } from "../../store/WalletProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 
@@ -69,6 +71,8 @@ export default function SwipeScreen() {
     block,
     saveCompliment,
     setSort,
+    setFilters,
+    filterNotice,
     markNotificationsSeen,
   } = useSwipe();
   const progress = useSharedValue(0);
@@ -76,12 +80,13 @@ export default function SwipeScreen() {
   const busyRef = useRef(false); // a card is flying out: ignore more taps until it's gone
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
-  const [notInDemo, setNotInDemo] = useState<string | null>(null);
   const [viewing, setViewing] = useState<Profile | null>(null);
   const [reporting, setReporting] = useState<Profile | null>(null);
   const [blocking, setBlocking] = useState<Profile | null>(null);
   const [complimenting, setComplimenting] = useState<Profile | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterCount = activeFilterCount(saved.filters);
   const [boostOpen, setBoostOpen] = useState(false);
   const [notifSeenAt, setNotifSeenAt] = useState<number | null>(null); // null = list closed
 
@@ -118,6 +123,10 @@ export default function SwipeScreen() {
     if (__DEV__) console.log(`[deck] prefetch ${urls.length} photos`);
   }, [upcoming]);
 
+  useEffect(() => {
+    preloadSounds();
+  }, []);
+
   // New top profile → back to the top of the page.
   const topId = top?.id;
   useEffect(() => {
@@ -134,6 +143,7 @@ export default function SwipeScreen() {
         () => {},
       );
     else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    playSound(action === "pass" ? "nope" : action);
     swipe(top.id, action);
   };
 
@@ -207,8 +217,10 @@ export default function SwipeScreen() {
     >
       <TopButton
         icon="options-outline"
-        label="Filters"
-        onPress={() => setNotInDemo("Filters")}
+        label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
+        color={filterCount ? colors.primary : undefined}
+        dot={filterCount > 0}
+        onPress={() => setFiltersOpen(true)}
       />
       <TopButton
         icon="swap-vertical"
@@ -248,6 +260,25 @@ export default function SwipeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
+          {filterNotice !== "none" ? (
+            <View
+              style={[
+                styles.notice,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={colors.textMuted}
+              />
+              <AppText variant="caption" muted style={styles.flex}>
+                {filterNotice === "age"
+                  ? "Not many people match all your filters — showing people slightly outside your age range."
+                  : "Not many people match all your filters — showing people close to them."}
+              </AppText>
+            </View>
+          ) : null}
           <View style={[styles.cardBox, { height: cardHeight }]}>
             {next ? (
               <SwipeCard
@@ -379,10 +410,21 @@ export default function SwipeScreen() {
           setComplimenting(null);
           if (!p) return;
           saveCompliment(p.id, text);
+          playSound("compliment");
           toast.show(`Compliment sent to ${p.name}`);
           // A compliment is also a like: the card leaves the deck.
           if (top && top.id === p.id) press("like");
           else swipe(p.id, "like");
+        }}
+      />
+
+      <FiltersModal
+        visible={filtersOpen}
+        value={saved.filters}
+        onClose={() => setFiltersOpen(false)}
+        onApply={(f) => {
+          setFilters(f);
+          scrollRef.current?.scrollTo({ y: 0, animated: false });
         }}
       />
 
@@ -404,12 +446,6 @@ export default function SwipeScreen() {
           setNotifSeenAt(null);
           setBoostOpen(true);
         }}
-      />
-
-      <NotInDemoModal
-        visible={notInDemo !== null}
-        feature={notInDemo ?? ""}
-        onClose={() => setNotInDemo(null)}
       />
     </View>
   );
@@ -559,6 +595,16 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
+  },
+  notice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   topDot: {
     position: "absolute",

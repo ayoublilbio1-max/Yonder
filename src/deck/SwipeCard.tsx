@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   Extrapolation,
+  FadeIn,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -47,11 +49,15 @@ type Props = {
 
 const SWIPE_X = 110; // px past which a drag counts as a swipe
 const FLING_VELOCITY = 900;
-const DURATION = 300; // finger swipe: card flies out
-// Button press: lean the card so the stamp shows, hold, then fly out.
-const LEAN_MS = 260;
-const HOLD_MS = 260;
-const OUT_MS = 380;
+
+// Button press: the card leans (soft overshoot) so the stamp lands, holds, then
+// accelerates away on a slight curve. The card underneath grows during the whole move.
+const LEAN_MS = 340;
+const HOLD_MS = 180;
+const OUT_MS = 420;
+const LEAN = { duration: LEAN_MS, easing: Easing.out(Easing.back(1.6)) };
+const OUT = { duration: OUT_MS, easing: Easing.in(Easing.quad) };
+const BACK_SPRING = { damping: 16, stiffness: 170, mass: 0.8 };
 
 export function SwipeCard({
   profile,
@@ -70,57 +76,56 @@ export function SwipeCard({
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
 
-  // Finger swipe: straight out.
-  const fling = (action: SwipeAction) => {
+  // Finger swipe: keep the finger's speed and slow down smoothly as it leaves.
+  const fling = (action: SwipeAction, velocityX: number) => {
     "worklet";
-    const toX =
-      action === "like" ? width * 1.6 : action === "pass" ? -width * 1.6 : 0;
-    const toY = action === "superlike" ? -height * 1.2 : ty.get();
-    progress.set(withTiming(1, { duration: DURATION }));
-    tx.set(withTiming(toX, { duration: DURATION }));
-    ty.set(
-      withTiming(toY, { duration: DURATION }, (finished) => {
+    const dir = action === "like" ? 1 : -1;
+    const toX = dir * width * 1.5;
+    const remaining = Math.abs(toX - tx.get());
+    const speed = Math.max(Math.abs(velocityX), 1200);
+    const duration = Math.min(420, Math.max(220, (remaining / speed) * 1000));
+    const ease = { duration, easing: Easing.out(Easing.quad) };
+    progress.set(withTiming(1, ease));
+    ty.set(withTiming(ty.get() + 60, ease));
+    tx.set(
+      withTiming(toX, ease, (finished) => {
         if (finished) scheduleOnRN(onSwiped, action);
       }),
     );
   };
 
-  // Button press: the card leans so LIKE / NOPE / SUPER LIKE is clearly seen, then leaves.
   const buttonFling = (action: SwipeAction) => {
     "worklet";
-    const dir = action === "like" ? 1 : -1;
+    const done = (finished?: boolean) => {
+      "worklet";
+      if (finished) scheduleOnRN(onSwiped, action);
+    };
     progress.set(
-      withDelay(LEAN_MS + HOLD_MS, withTiming(1, { duration: OUT_MS })),
+      withTiming(1, {
+        duration: LEAN_MS + HOLD_MS + OUT_MS,
+        easing: Easing.inOut(Easing.quad),
+      }),
     );
     if (action === "superlike") {
       ty.set(
         withSequence(
-          withTiming(-height * 0.32, { duration: LEAN_MS }),
-          withDelay(
-            HOLD_MS,
-            withTiming(-height * 1.2, { duration: OUT_MS }, (finished) => {
-              if (finished) scheduleOnRN(onSwiped, action);
-            }),
-          ),
+          withTiming(-height * 0.32, LEAN),
+          withDelay(HOLD_MS, withTiming(-height * 1.3, OUT, done)),
         ),
       );
       return;
     }
+    const dir = action === "like" ? 1 : -1;
     tx.set(
       withSequence(
-        withTiming(dir * SWIPE_X * 1.25, { duration: LEAN_MS }),
-        withDelay(
-          HOLD_MS,
-          withTiming(dir * width * 1.6, { duration: OUT_MS }, (finished) => {
-            if (finished) scheduleOnRN(onSwiped, action);
-          }),
-        ),
+        withTiming(dir * SWIPE_X * 1.3, LEAN),
+        withDelay(HOLD_MS, withTiming(dir * width * 1.6, OUT, done)),
       ),
     );
     ty.set(
       withSequence(
-        withTiming(-14, { duration: LEAN_MS }),
-        withDelay(HOLD_MS, withTiming(40, { duration: OUT_MS })),
+        withTiming(-12, LEAN),
+        withDelay(HOLD_MS, withTiming(90, OUT)),
       ),
     );
   };
@@ -145,13 +150,15 @@ export function SwipeCard({
     onDeactivate: (e) => {
       "worklet";
       if (e.translationX > SWIPE_X || e.velocityX > FLING_VELOCITY)
-        fling("like");
+        fling("like", e.velocityX);
       else if (e.translationX < -SWIPE_X || e.velocityX < -FLING_VELOCITY)
-        fling("pass");
+        fling("pass", e.velocityX);
       else {
-        tx.set(withSpring(0));
-        ty.set(withSpring(0));
-        progress.set(withTiming(0, { duration: 180 }));
+        tx.set(withSpring(0, BACK_SPRING));
+        ty.set(withSpring(0, BACK_SPRING));
+        progress.set(
+          withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) }),
+        );
       }
     },
   });
@@ -166,7 +173,7 @@ export function SwipeCard({
       );
       return { transform: [{ scale }] };
     }
-    const rotate = interpolate(tx.get(), [-width, width], [-14, 14]);
+    const rotate = interpolate(tx.get(), [-width, width], [-12, 12]);
     return {
       transform: [
         { translateX: tx.get() },
@@ -236,6 +243,7 @@ export function SwipeCard({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
+        entering={isTop ? undefined : FadeIn.duration(220)}
         style={[styles.card, { backgroundColor: colors.surface }, cardStyle]}
       >
         {!loaded ? <Skeleton style={StyleSheet.absoluteFill} /> : null}

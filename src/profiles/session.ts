@@ -16,9 +16,21 @@ export function sessionRandom(key: string) {
   return (h >>> 0) / 4294967296;
 }
 
-// Demo distance shown on the card, 1–35 km, fixed for the session.
+// Demo distance shown everywhere, 1–35 km, fixed for the session.
+// Rule 9.4: location never runs out. With a "Distance" filter smaller than a profile's
+// distance, that profile is moved inside the chosen distance instead of being hidden.
+let distanceCap: number | null = null;
+
+export function setDistanceCap(km: number | null) {
+  distanceCap = km;
+}
+
 export function distanceKm(profileId: string) {
-  return 1 + Math.floor(sessionRandom(`${profileId}:distance`) * 35);
+  const d = 1 + Math.floor(sessionRandom(`${profileId}:distance`) * 35);
+  if (distanceCap !== null && d > distanceCap) {
+    return 1 + Math.floor(sessionRandom(`${profileId}:near`) * distanceCap);
+  }
+  return d;
 }
 
 if (__DEV__) console.log(`[deck] session seed ${SESSION_SEED}`);

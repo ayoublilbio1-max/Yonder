@@ -8,6 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  applyFilters,
+  DEFAULT_FILTERS,
+  type FilterResult,
+  type Filters,
+} from "../filters/filters";
 import { profileDraftKey } from "../onboarding/OnboardingProvider";
 import type { ProfileDraft } from "../onboarding/types";
 import type { Profile, ProfileGender } from "../profiles/types";
@@ -29,6 +35,7 @@ type Saved = {
   blocked: string[];
   compliments: Record<string, string>;
   sort: SortKey;
+  filters: Filters;
   notificationsSeenAt: number; // last time the list was opened (ms)
 };
 
@@ -38,6 +45,7 @@ const EMPTY: Saved = {
   blocked: [],
   compliments: {},
   sort: "recommended",
+  filters: DEFAULT_FILTERS,
   notificationsSeenAt: 0,
 };
 const storageKey = (userId: string) => `yonder.deck.${userId}`;
@@ -56,6 +64,8 @@ type SwipeContextValue = {
   block: (id: string, reason: string) => void;
   saveCompliment: (id: string, text: string) => void;
   setSort: (sort: SortKey) => void;
+  setFilters: (filters: Filters) => void;
+  filterNotice: FilterResult["notice"];
   markNotificationsSeen: () => void;
 };
 
@@ -83,9 +93,12 @@ export function SwipeProvider({
       .then(([draftRaw, savedRaw]) => {
         if (!alive) return;
         const draft = draftRaw ? (JSON.parse(draftRaw) as ProfileDraft) : {};
-        const loaded = savedRaw
-          ? { ...EMPTY, ...(JSON.parse(savedRaw) as Partial<Saved>) }
-          : EMPTY;
+        const parsed = savedRaw ? (JSON.parse(savedRaw) as Partial<Saved>) : {};
+        const loaded: Saved = {
+          ...EMPTY,
+          ...parsed,
+          filters: { ...DEFAULT_FILTERS, ...parsed.filters },
+        };
         setMe(draft);
         setSaved(loaded);
         if (__DEV__) {
@@ -118,9 +131,23 @@ export function SwipeProvider({
     () => new Set([...sessionSwiped.map((s) => s.id), ...saved.blocked]),
     [sessionSwiped, saved.blocked],
   );
+  // Full session order → filters (rule 9.4) → hide swiped / blocked → sort.
+  const pool = useMemo(
+    () => (ready ? buildDeck(show, new Set()) : []),
+    [ready, show],
+  );
+  const filtered = useMemo(
+    () => applyFilters(pool, saved.filters, show),
+    [pool, saved.filters, show],
+  );
   const deck = useMemo(
-    () => (ready ? sortDeck(buildDeck(show, hiddenIds), saved.sort, me) : []),
-    [ready, show, hiddenIds, saved.sort, me],
+    () =>
+      sortDeck(
+        filtered.list.filter((p) => !hiddenIds.has(p.id)),
+        saved.sort,
+        me,
+      ),
+    [filtered, hiddenIds, saved.sort, me],
   );
 
   const swipe = useCallback((id: string, action: SwipeAction) => {
@@ -189,6 +216,11 @@ export function SwipeProvider({
     if (__DEV__) console.log(`[sort] ${sort}`);
   }, []);
 
+  const setFilters = useCallback((filters: Filters) => {
+    setSaved((prev) => ({ ...prev, filters }));
+    if (__DEV__) console.log("[filters] applied", JSON.stringify(filters));
+  }, []);
+
   const markNotificationsSeen = useCallback(() => {
     setSaved((prev) => ({ ...prev, notificationsSeenAt: Date.now() }));
   }, []);
@@ -208,6 +240,8 @@ export function SwipeProvider({
       block,
       saveCompliment,
       setSort,
+      setFilters,
+      filterNotice: filtered.notice,
       markNotificationsSeen,
     }),
     [
@@ -224,6 +258,8 @@ export function SwipeProvider({
       block,
       saveCompliment,
       setSort,
+      setFilters,
+      filtered.notice,
       markNotificationsSeen,
     ],
   );

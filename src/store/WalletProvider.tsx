@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { playSound } from "../sound/sounds";
 
 // Demo purchases for one account, saved on the phone: compliments (1 free per day + packs),
 // boosts (3 hours each) and Gold (v0.9.0). Nothing is ever charged.
@@ -135,6 +136,7 @@ export function WalletProvider({
         };
       return { ...w, boosts: w.boosts + qty };
     });
+    if (startOne) setTimeout(() => playSound("boost"), 700); // after the payment sound
     if (__DEV__)
       console.log(
         `[boost] +${qty} boosts (demo purchase) · start now=${startOne}`,
@@ -149,6 +151,7 @@ export function WalletProvider({
       boosts: w.boosts - 1,
       boostEndsAt: Date.now() + BOOST_MS,
     }));
+    playSound("boost");
     if (__DEV__)
       console.log(
         `[boost] started for ${BOOST_HOURS}h · ${wallet.boosts - 1} left`,

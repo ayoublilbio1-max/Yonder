@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState, type ComponentProps } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
 import { displayName, METHOD_LABEL } from "../auth/types";
@@ -10,6 +10,7 @@ import { AppText } from "../components/AppText";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { FeedbackModal } from "../components/FeedbackModal";
 import { APP_NAME, APP_VERSION, DEVELOPER } from "../constants/app";
+import { playSound, setSoundsEnabled, useSoundsEnabled } from "../sound/sounds";
 import { useTheme, useThemeMode, type ThemeMode } from "../theme/ThemeProvider";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -29,6 +30,7 @@ export default function SettingsScreen() {
   const { session, signOut } = useAuth();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const soundsOn = useSoundsEnabled();
 
   const user = session?.user;
 
@@ -165,6 +167,56 @@ export default function SettingsScreen() {
               </Pressable>
             );
           })}
+        </View>
+
+        <AppText variant="label" muted style={styles.sectionTitle}>
+          SOUNDS
+        </AppText>
+        <View
+          style={[
+            styles.group,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Pressable
+            onPress={() => {
+              setSoundsEnabled(!soundsOn);
+              if (!soundsOn) playSound("like");
+            }}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: soundsOn }}
+            style={styles.row}
+          >
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: colors.primarySoft },
+              ]}
+            >
+              <Ionicons
+                name={soundsOn ? "volume-high-outline" : "volume-mute-outline"}
+                size={20}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.rowText}>
+              <AppText variant="body" weight="medium">
+                App sounds
+              </AppText>
+              <AppText variant="bodySmall" muted>
+                Swipes, matches, boosts and payments
+              </AppText>
+            </View>
+            <Switch
+              value={soundsOn}
+              onValueChange={(on) => {
+                setSoundsEnabled(on);
+                if (on) playSound("like");
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </Pressable>
         </View>
 
         <AppText variant="label" muted style={styles.sectionTitle}>
