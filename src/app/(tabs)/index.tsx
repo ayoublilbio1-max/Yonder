@@ -21,6 +21,7 @@ import { useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
+import { NotInDemoModal } from "../../components/NotInDemoModal";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { actionGradients } from "../../constants/colors";
@@ -28,6 +29,7 @@ import { BoostSheet } from "../../deck/BoostSheet";
 import { ComplimentSheet } from "../../deck/ComplimentSheet";
 import { EmptyDeck } from "../../deck/EmptyDeck";
 import { FiltersModal } from "../../deck/FiltersModal";
+import { MatchModal } from "../../deck/MatchModal";
 import { MediaViewer } from "../../deck/MediaViewer";
 import { buildNotifications } from "../../deck/notifications";
 import { NotificationsModal } from "../../deck/NotificationsModal";
@@ -84,6 +86,8 @@ export default function SwipeScreen() {
   const [blocking, setBlocking] = useState<Profile | null>(null);
   const [complimenting, setComplimenting] = useState<Profile | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
+  const [match, setMatch] = useState<Profile | null>(null); // "It's a match!" screen
+  const [notInDemo, setNotInDemo] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterCount = activeFilterCount(saved.filters);
   const [boostOpen, setBoostOpen] = useState(false);
@@ -139,7 +143,8 @@ export default function SwipeScreen() {
   const onSwiped = (action: SwipeAction) => {
     busyRef.current = false;
     if (!top) return;
-    swipe(top.id, action);
+    const matched = swipe(top.id, action);
+    if (matched) setMatch(top);
   };
 
   const press = (action: SwipeAction) => {
@@ -405,6 +410,23 @@ export default function SwipeScreen() {
           if (top && top.id === p.id) press("like");
           else swipe(p.id, "like");
         }}
+      />
+
+      <MatchModal
+        profile={match}
+        myPhoto={me.photos?.[0]}
+        myName={me.firstName}
+        onClose={() => setMatch(null)}
+        onMessage={() => {
+          setMatch(null);
+          setNotInDemo("Chats");
+        }}
+      />
+
+      <NotInDemoModal
+        visible={notInDemo !== null}
+        feature={notInDemo ?? ""}
+        onClose={() => setNotInDemo(null)}
       />
 
       <FiltersModal

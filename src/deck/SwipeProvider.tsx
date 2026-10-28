@@ -20,6 +20,7 @@ import type { ProfileDraft } from "../onboarding/types";
 import type { Profile, ProfileGender } from "../profiles/types";
 import { useWallet } from "../store/WalletProvider";
 import { buildDeck } from "./buildDeck";
+import { willMatch } from "./matches";
 import { sortDeck, type SortKey } from "./sort";
 
 // Swipe state for one account, saved on the phone:
@@ -36,6 +37,7 @@ type Saved = {
   favorites: string[];
   blocked: string[];
   compliments: Record<string, string>;
+  matches: Record<string, number>; // profile id → when it matched (ms)
   sort: SortKey;
   filters: Filters;
   notificationsSeenAt: number; // last time the list was opened (ms)
@@ -46,6 +48,7 @@ const EMPTY: Saved = {
   favorites: [],
   blocked: [],
   compliments: {},
+  matches: {},
   sort: "recommended",
   filters: DEFAULT_FILTERS,
   notificationsSeenAt: 0,
@@ -57,7 +60,7 @@ type SwipeContextValue = {
   show: ProfileGender; // who the tester sees
   me: ProfileDraft; // the tester's own onboarding answers (for "Your similarities")
   deck: Profile[];
-  swipe: (id: string, action: SwipeAction) => void;
+  swipe: (id: string, action: SwipeAction) => boolean; // true = it's a match
   rewindLast: () => Profile | null;
   canRewind: boolean;
   rewindPassed: () => number;
@@ -160,15 +163,25 @@ export function SwipeProvider({
     return list;
   }, [filtered, hiddenIds, saved.sort, me, lastTopId]);
 
-  const swipe = useCallback((id: string, action: SwipeAction) => {
-    setSessionSwiped((prev) => [...prev, { id, action }]);
-    setLastTopId(null); // the reshuffle swap is only for the first card after Apply
-    setSaved((prev) => ({
-      ...prev,
-      decisions: { ...prev.decisions, [id]: action },
-    }));
-    if (__DEV__) console.log(`[deck] ${action} ${id}`);
-  }, []);
+  const matchCount = Object.keys(saved.matches).length;
+  const likedBefore = Object.values(saved.decisions).some((a) => a !== "pass");
+
+  const swipe = useCallback(
+    (id: string, action: SwipeAction) => {
+      const matched = willMatch(id, action, matchCount === 0 && !likedBefore);
+      setSessionSwiped((prev) => [...prev, { id, action }]);
+      setLastTopId(null); // the reshuffle swap is only for the first card after Apply
+      setSaved((prev) => ({
+        ...prev,
+        decisions: { ...prev.decisions, [id]: action },
+        matches: matched ? { ...prev.matches, [id]: Date.now() } : prev.matches,
+      }));
+      if (__DEV__)
+        console.log(`[deck] ${action} ${id}${matched ? " → MATCH" : ""}`);
+      return matched;
+    },
+    [matchCount, likedBefore],
+  );
 
   const rewindLast = useCallback(() => {
     const last = sessionSwiped[sessionSwiped.length - 1];
@@ -177,7 +190,9 @@ export function SwipeProvider({
     setSaved((prev) => {
       const decisions = { ...prev.decisions };
       delete decisions[last.id];
-      return { ...prev, decisions };
+      const matches = { ...prev.matches };
+      delete matches[last.id]; // rewinding a like also undoes its match
+      return { ...prev, decisions, matches };
     });
     if (__DEV__) console.log(`[deck] rewind ${last.id} (${last.action})`);
     return buildDeck(show, new Set()).find((p) => p.id === last.id) ?? null;
