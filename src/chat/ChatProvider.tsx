@@ -9,11 +9,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useToast } from "../components/Toast";
 import { useSwipe } from "../deck/SwipeProvider";
 import { withOverrides } from "../filters/filters";
-import { profileById } from "../profiles/data";
+import { mediaOf, profileById } from "../profiles/data";
 import { isLocked } from "../profiles/extras";
+import { sessionRandom } from "../profiles/session";
 import type { Profile } from "../profiles/types";
+import { recoverCameraPhoto, timerLabel, type PhotoTimer } from "./media";
 import { mediaReplyFor, openerFor, replyFor, writesFirst } from "./replies";
 
 // Chats with your matches, saved on the phone per account (demo: the other side is simulated).
@@ -31,6 +34,8 @@ export type ChatMedia = {
   width?: number;
   height?: number;
   durationMs?: number; // video / voice
+  timer?: PhotoTimer; // timed photo: view once / 5 s / 10 s
+  opened?: boolean; // a timed photo that was already opened (can't be seen again)
 };
 
 export type ChatMessage = {
@@ -73,6 +78,7 @@ type ChatContextValue = {
   requestPhotos: (id: string) => void;
   setActive: (id: string | null) => void; // the chat on screen (its messages don't count as unread)
   removeThread: (id: string) => void; // unmatch / block: the chat is deleted
+  markOpened: (id: string, messageId: string) => void; // a timed photo was viewed
 };
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -85,6 +91,7 @@ export function ChatProvider({
   children: ReactNode;
 }) {
   const { ready: swipeReady, saved, me } = useSwipe();
+  const toast = useToast();
   const [ready, setReady] = useState(false);
   const [threads, setThreads] = useState<Record<string, ChatThread>>({});
   const [typing, setTyping] = useState<Record<string, boolean>>({});
@@ -260,17 +267,61 @@ export function ChatProvider({
         if (__DEV__) console.log(`[chat] ← ${id} reply #${cur.replies + 1}`);
         if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
           later(1500, () => reveal(id));
+        // Some matches send you a timed photo after a few messages (never while their photos are private).
+        const canShare = !isLocked(p) || cur.revealed;
+        const photo = mediaOf(p).filter((m) => m.type === "photo")[1];
+        if (
+          cur.replies === 2 &&
+          canShare &&
+          photo &&
+          sessionRandom(`${p.id}:timed`) < 0.6
+        ) {
+          const timer: PhotoTimer =
+            sessionRandom(`${p.id}:timer`) < 0.5 ? "once" : 5;
+          later(2500, () =>
+            push(id, "them", "Photo", undefined, {
+              kind: "photo",
+              uri: photo.uri,
+              timer,
+              width: 3,
+              height: 4,
+            }),
+          );
+          if (__DEV__)
+            console.log(`[chat] ${id} will send a ${timerLabel(timer)} photo`);
+        }
       });
     },
     [push, later, reveal, me.firstName],
   );
 
+  // Mark one timed photo as opened (it shows "Opened" and can't be viewed again).
+  const markOpenedNow = useCallback((id: string, messageId: string) => {
+    setThreads((prev) => {
+      const t = prev[id];
+      if (!t) return prev;
+      return {
+        ...prev,
+        [id]: {
+          ...t,
+          messages: t.messages.map((m) =>
+            m.id === messageId && m.media
+              ? { ...m, media: { ...m.media, opened: true } }
+              : m,
+          ),
+        },
+      };
+    });
+    if (__DEV__) console.log(`[chat] ${id} timed photo ${messageId} opened`);
+  }, []);
+
   const sendMedia = useCallback(
     (id: string, media: ChatMedia) => {
       const p = profileById(id);
       if (!p) return;
-      const label =
-        media.kind === "photo"
+      const label = media.timer
+        ? timerLabel(media.timer)
+        : media.kind === "photo"
           ? "Photo"
           : media.kind === "video"
             ? "Video"
@@ -286,15 +337,38 @@ export function ChatProvider({
       later(900 + wait, () => {
         const cur = threadsRef.current[id] ?? NEW_THREAD;
         setTyping((prev) => ({ ...prev, [id]: false }));
-        push(id, "them", mediaReplyFor(p, media.kind, cur.replies), (t) => ({
-          replies: t.replies + 1,
-        }));
+        // A timed photo: they open it (it can't be seen again), then reply.
+        const sent = [...cur.messages]
+          .reverse()
+          .find((m) => m.from === "me" && m.media?.timer && !m.media.opened);
+        if (media.timer && sent) markOpenedNow(id, sent.id);
+        push(
+          id,
+          "them",
+          media.timer
+            ? "Opened your photo 👀 cute!"
+            : mediaReplyFor(p, media.kind, cur.replies),
+          (t) => ({ replies: t.replies + 1 }),
+        );
         if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
           later(1500, () => reveal(id));
       });
     },
-    [push, later, reveal],
+    [push, later, reveal, markOpenedNow],
   );
+
+  // The photo taken while Android closed the app (see media.ts) is sent when the app is back.
+  const recovered = useRef(false);
+  useEffect(() => {
+    if (!ready || !swipeReady || recovered.current) return;
+    recovered.current = true;
+    recoverCameraPhoto().then((r) => {
+      if (!r || !saved.matches[r.chatId]) return;
+      sendMedia(r.chatId, r.media);
+      const name = profileById(r.chatId)?.name ?? "";
+      toast.show(`Your photo was sent to ${name}`);
+    });
+  }, [ready, swipeReady, saved.matches, sendMedia, toast]);
 
   const requestPhotos = useCallback(
     (id: string) => {
@@ -341,6 +415,7 @@ export function ChatProvider({
       requestPhotos,
       setActive,
       removeThread,
+      markOpened: markOpenedNow,
     }),
     [
       ready,
@@ -352,6 +427,7 @@ export function ChatProvider({
       requestPhotos,
       setActive,
       removeThread,
+      markOpenedNow,
     ],
   );
 

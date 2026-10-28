@@ -1,12 +1,12 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
-    AudioModule,
-    RecordingPresets,
-    setAudioModeAsync,
-    useAudioPlayer,
-    useAudioPlayerStatus,
-    useAudioRecorder,
-    useAudioRecorderState,
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
 } from "expo-audio";
 import { File } from "expo-file-system";
 import { Image } from "expo-image";
@@ -14,19 +14,19 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-    Easing,
-    FadeIn,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming,
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../components/AppText";
 import { useTheme } from "../theme/ThemeProvider";
 import type { ChatMedia } from "./ChatProvider";
-import { formatDuration, keepFile } from "./media";
+import { formatDuration, keepFile, timerLabel } from "./media";
 
 // Photo / video / voice bubbles in a chat, the full-screen media viewer and the voice recorder.
 
@@ -67,6 +67,85 @@ export function PhotoBubble({
         contentFit="cover"
         transition={150}
       />
+    </Pressable>
+  );
+}
+
+// ---------- timed photo (view once / 5 s / 10 s) ----------
+export function TimedPhotoBubble({
+  media,
+  mine,
+  onOpen,
+}: {
+  media: ChatMedia;
+  mine: boolean;
+  onOpen: () => void;
+}) {
+  const colors = useTheme();
+  const opened = Boolean(media.opened);
+  const label = media.timer ? timerLabel(media.timer) : "Photo";
+  const title = opened ? "Opened" : mine ? label : "Tap to view";
+  const sub = opened ? label : mine ? "Delivered" : label;
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={opened ? `${label}, opened` : title}
+      style={({ pressed }) => [
+        styles.timed,
+        {
+          backgroundColor: mine ? colors.primary : colors.surface,
+          borderColor: mine ? colors.primary : colors.border,
+          opacity: pressed ? 0.85 : 1,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.timedIcon,
+          {
+            borderColor: mine ? colors.onPrimary : colors.primary,
+            opacity: opened ? 0.5 : 1,
+          },
+        ]}
+      >
+        {!mine && !opened ? (
+          <Image
+            source={{ uri: media.uri }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            blurRadius={40}
+          />
+        ) : null}
+        <Ionicons
+          name={
+            opened
+              ? "checkmark-done"
+              : media.timer === "once"
+                ? "eye-outline"
+                : "timer-outline"
+          }
+          size={20}
+          color={
+            mine ? colors.onPrimary : !opened ? colors.onPhoto : colors.primary
+          }
+        />
+      </View>
+      <View>
+        <AppText
+          variant="body"
+          weight="semibold"
+          color={mine ? colors.onPrimary : colors.text}
+        >
+          {title}
+        </AppText>
+        <AppText
+          variant="caption"
+          color={mine ? colors.onPrimary : colors.textMuted}
+        >
+          {sub}
+        </AppText>
+      </View>
     </Pressable>
   );
 }
@@ -201,7 +280,7 @@ export function AudioBubble({
   );
 }
 
-// ---------- full screen ----------
+// ---------- full screen (a 5 s / 10 s photo shows a shrinking bar and closes by itself) ----------
 export function FullMedia({
   media,
   onClose,
@@ -231,8 +310,59 @@ function FullMediaContent({
 }) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
+  const seconds = typeof media.timer === "number" ? media.timer : 0;
+  const left = useSharedValue(1);
+
+  useEffect(() => {
+    if (!seconds) return;
+    left.set(
+      withTiming(0, { duration: seconds * 1000, easing: Easing.linear }),
+    );
+    const t = setTimeout(onClose, seconds * 1000);
+    if (__DEV__) console.log(`[media] timed photo open · ${seconds}s`);
+    return () => clearTimeout(t);
+    // the timer starts once, when the photo opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: left.get() }],
+  }));
+
   return (
     <View style={[styles.full, { backgroundColor: colors.viewerBg }]}>
+      {seconds ? (
+        <View
+          style={[
+            styles.timerTrack,
+            { top: insets.top + 4, backgroundColor: colors.photoScrimTop },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.timerBar,
+              { backgroundColor: colors.onPhoto },
+              barStyle,
+            ]}
+          />
+        </View>
+      ) : null}
+      {media.timer === "once" ? (
+        <View
+          style={[
+            styles.onceTag,
+            {
+              bottom: insets.bottom + 24,
+              backgroundColor: colors.photoScrimTop,
+            },
+          ]}
+        >
+          <Ionicons name="eye-outline" size={16} color={colors.onPhoto} />
+          <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
+            View once — it disappears when you close it
+          </AppText>
+        </View>
+      ) : null}
       {media.kind === "video" ? (
         <FullVideo uri={media.uri} />
       ) : (
@@ -470,6 +600,50 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  timed: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minWidth: 200,
+  },
+  timedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timerTrack: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    height: 3,
+    borderRadius: 2,
+    overflow: "hidden",
+    zIndex: 2,
+  },
+  timerBar: {
+    height: 3,
+    width: "100%",
+    transformOrigin: "left",
+  },
+  onceTag: {
+    position: "absolute",
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    zIndex: 2,
   },
   recorder: {
     flex: 1,

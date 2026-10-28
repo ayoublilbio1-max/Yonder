@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -98,7 +98,17 @@ export default function ChatsScreen() {
     else setGoldOpen(true);
   };
 
+  // One tap = one chat screen (a quick double tap used to open the chat twice).
+  const opening = useRef(false);
   const open = (id: string) => {
+    if (opening.current) {
+      if (__DEV__) console.log(`[chat] open ${id} ignored (already opening)`);
+      return;
+    }
+    opening.current = true;
+    setTimeout(() => {
+      opening.current = false;
+    }, 800);
     if (__DEV__) console.log(`[chat] open ${id}`);
     router.push(`/chat/${id}` as Href);
   };

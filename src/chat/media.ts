@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Directory, File, Paths } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import type { ChatMedia } from "./ChatProvider";
@@ -30,7 +31,7 @@ function extOf(uri: string, fallback: string) {
   return m ? m[1].toLowerCase() : fallback;
 }
 
-function fromAsset(asset: ImagePicker.ImagePickerAsset): ChatMedia {
+export function mediaFromAsset(asset: ImagePicker.ImagePickerAsset): ChatMedia {
   const isVideo = asset.type === "video";
   const ext = extOf(asset.uri, isVideo ? "mp4" : "jpg");
   return {
@@ -53,7 +54,7 @@ export async function pickFromGallery(): Promise<MediaResult> {
     });
     if (res.canceled || !res.assets?.[0])
       return { ok: false, reason: "cancelled" };
-    const media = fromAsset(res.assets[0]);
+    const media = mediaFromAsset(res.assets[0]);
     if (__DEV__)
       console.log(
         `[media] gallery ${media.kind} ${media.width}x${media.height} in ${Date.now() - t0}ms`,
@@ -65,19 +66,25 @@ export async function pickFromGallery(): Promise<MediaResult> {
   }
 }
 
+// Android can close the app while the camera is open (to free memory). We remember which chat
+// asked for the photo, and ChatProvider picks the photo up when the app starts again.
+export const PENDING_CAMERA_KEY = "yonder.pendingCameraChat";
+
 // Camera: take a photo now.
-export async function takePhoto(): Promise<MediaResult> {
+export async function takePhoto(chatId: string): Promise<MediaResult> {
   try {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (__DEV__) console.log("[media] camera permission", perm.status);
     if (!perm.granted) return { ok: false, reason: "denied" };
+    await AsyncStorage.setItem(PENDING_CAMERA_KEY, chatId).catch(() => {});
     const res = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.8,
     });
+    await AsyncStorage.removeItem(PENDING_CAMERA_KEY).catch(() => {});
     if (res.canceled || !res.assets?.[0])
       return { ok: false, reason: "cancelled" };
-    const media = fromAsset(res.assets[0]);
+    const media = mediaFromAsset(res.assets[0]);
     if (__DEV__)
       console.log(`[media] camera photo ${media.width}x${media.height}`);
     return { ok: true, media };
@@ -93,8 +100,39 @@ export function formatDuration(ms: number) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
+// After a restart: the photo taken while Android closed the app, and the chat it was for.
+export async function recoverCameraPhoto(): Promise<{
+  chatId: string;
+  media: ChatMedia;
+} | null> {
+  try {
+    const chatId = await AsyncStorage.getItem(PENDING_CAMERA_KEY);
+    if (!chatId) return null;
+    await AsyncStorage.removeItem(PENDING_CAMERA_KEY);
+    const res = await ImagePicker.getPendingResultAsync();
+    if (__DEV__)
+      console.log(
+        `[media] pending camera result for ${chatId}:`,
+        res ? "found" : "none",
+      );
+    if (!res || !("assets" in res) || res.canceled || !res.assets?.[0])
+      return null;
+    return { chatId, media: mediaFromAsset(res.assets[0]) };
+  } catch (e) {
+    if (__DEV__) console.log("[media] recover failed", String(e));
+    return null;
+  }
+}
+
+export function timerLabel(timer: PhotoTimer) {
+  return timer === "once" ? "View once" : `${timer}s photo`;
+}
+
+export type PhotoTimer = "once" | 5 | 10;
+
 // Short text for a message in the chats list.
 export function mediaPreview(media: ChatMedia) {
+  if (media.timer) return `⏱ ${timerLabel(media.timer)}`;
   if (media.kind === "photo") return "📷 Photo";
   if (media.kind === "video") return "🎥 Video";
   return `🎤 Voice message${media.durationMs ? ` (${formatDuration(media.durationMs)})` : ""}`;

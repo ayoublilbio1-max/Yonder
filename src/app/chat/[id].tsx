@@ -40,9 +40,11 @@ import {
   AudioBubble,
   FullMedia,
   PhotoBubble,
+  TimedPhotoBubble,
   VideoBubble,
   VoiceRecorder,
 } from "../../chat/MediaBubbles";
+import { PhotoPreview } from "../../chat/PhotoPreview";
 import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { useToast } from "../../components/Toast";
@@ -85,6 +87,7 @@ export default function ChatScreen() {
     requestPhotos,
     setActive,
     removeThread,
+    markOpened,
   } = useChats();
   const { me, saved, toggleFavorite, unmatch } = useSwipe();
 
@@ -99,6 +102,7 @@ export default function ChatScreen() {
   const [recording, setRecording] = useState(false);
   const [fullMedia, setFullMedia] = useState<ChatMedia | null>(null);
   const [picking, setPicking] = useState(false); // gallery / camera open: ignore double taps
+  const [preview, setPreview] = useState<ChatMedia | null>(null); // photo waiting for a timer choice
 
   const profile = id ? profileFor(id) : null;
   const thread = id ? threads[id] : undefined;
@@ -139,12 +143,38 @@ export default function ChatScreen() {
     if (picking) return;
     setPicking(true);
     const res =
-      from === "gallery" ? await pickFromGallery() : await takePhoto();
+      from === "gallery" ? await pickFromGallery() : await takePhoto(id);
     setPicking(false);
-    if (res.ok) sendMedia(id, res.media);
+    if (res.ok && res.media.kind === "photo")
+      setPreview(res.media); // choose a timer first
+    else if (res.ok) sendMedia(id, res.media);
     else if (res.reason === "denied")
       toast.show("Allow the camera to take a photo");
     else if (res.reason === "error") toast.show("Couldn’t add that file");
+  };
+
+  // Tap on a photo / video in the chat. Timed photos: theirs open once, yours can't be opened.
+  const openMessageMedia = (msg: ChatMessage) => {
+    const media = msg.media;
+    if (!media) return;
+    if (!media.timer) {
+      setFullMedia(media);
+      return;
+    }
+    if (msg.from === "me") {
+      toast.show(
+        media.opened
+          ? `${profile.name} opened your photo`
+          : "Photos with a timer can’t be opened by the sender",
+      );
+      return;
+    }
+    if (media.opened) {
+      toast.show("This photo was already opened");
+      return;
+    }
+    markOpened(id, msg.id);
+    setFullMedia(media);
   };
 
   const openPhotos = () => {
@@ -407,7 +437,7 @@ export default function ChatScreen() {
                 <Bubble
                   msg={item}
                   newer={data[index - 1]}
-                  onOpenMedia={setFullMedia}
+                  onOpenMedia={openMessageMedia}
                 />
               )}
             />
@@ -610,6 +640,15 @@ export default function ChatScreen() {
 
       <FullMedia media={fullMedia} onClose={() => setFullMedia(null)} />
 
+      <PhotoPreview
+        media={preview}
+        onCancel={() => setPreview(null)}
+        onSend={(m) => {
+          setPreview(null);
+          sendMedia(id, m);
+        }}
+      />
+
       <MediaViewer
         profile={viewing}
         onClose={() => setViewing(null)}
@@ -730,7 +769,7 @@ function Bubble({
 }: {
   msg: ChatMessage;
   newer?: ChatMessage;
-  onOpenMedia: (m: ChatMedia) => void;
+  onOpenMedia: (m: ChatMessage) => void;
 }) {
   const colors = useTheme();
   if (msg.from === "system") {
@@ -753,10 +792,16 @@ function Bubble({
       style={[styles.bubbleWrap, mine ? styles.right : styles.left]}
     >
       {media ? (
-        media.kind === "photo" ? (
-          <PhotoBubble media={media} onOpen={() => onOpenMedia(media)} />
+        media.timer ? (
+          <TimedPhotoBubble
+            media={media}
+            mine={mine}
+            onOpen={() => onOpenMedia(msg)}
+          />
+        ) : media.kind === "photo" ? (
+          <PhotoBubble media={media} onOpen={() => onOpenMedia(msg)} />
         ) : media.kind === "video" ? (
-          <VideoBubble media={media} onOpen={() => onOpenMedia(media)} />
+          <VideoBubble media={media} onOpen={() => onOpenMedia(msg)} />
         ) : (
           <AudioBubble media={media} mine={mine} />
         )
