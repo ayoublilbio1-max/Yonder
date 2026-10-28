@@ -29,7 +29,20 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CallModal, type CallKind } from "../../chat/CallModal";
 import { ChatOptions } from "../../chat/ChatOptions";
-import { chatTime, useChats, type ChatMessage } from "../../chat/ChatProvider";
+import {
+  chatTime,
+  useChats,
+  type ChatMedia,
+  type ChatMessage,
+} from "../../chat/ChatProvider";
+import { pickFromGallery, takePhoto } from "../../chat/media";
+import {
+  AudioBubble,
+  FullMedia,
+  PhotoBubble,
+  VideoBubble,
+  VoiceRecorder,
+} from "../../chat/MediaBubbles";
 import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { useToast } from "../../components/Toast";
@@ -47,6 +60,7 @@ import { useTheme } from "../../theme/ThemeProvider";
 // A match's page (like Muzz): top bar (back · photo · name · audio · video · ⋮) and a
 // Chat / Profile switch. Chat = the messages; Profile = their card + all the sections + Unmatch.
 // ⋮ opens "Chat options": calls, share, search, export, unmatch, block, report.
+// Input: gallery (photo / video) · text · camera (take a photo) · mic (voice message) — all real files.
 
 const EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
 const MAX = 500;
@@ -67,6 +81,7 @@ export default function ChatScreen() {
     typing,
     profileFor,
     send,
+    sendMedia,
     requestPhotos,
     setActive,
     removeThread,
@@ -81,6 +96,9 @@ export default function ChatScreen() {
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [reporting, setReporting] = useState(false);
   const [search, setSearch] = useState<string | null>(null); // null = not searching
+  const [recording, setRecording] = useState(false);
+  const [fullMedia, setFullMedia] = useState<ChatMedia | null>(null);
+  const [picking, setPicking] = useState(false); // gallery / camera open: ignore double taps
 
   const profile = id ? profileFor(id) : null;
   const thread = id ? threads[id] : undefined;
@@ -117,6 +135,18 @@ export default function ChatScreen() {
     setText("");
   };
 
+  const pick = async (from: "gallery" | "camera") => {
+    if (picking) return;
+    setPicking(true);
+    const res =
+      from === "gallery" ? await pickFromGallery() : await takePhoto();
+    setPicking(false);
+    if (res.ok) sendMedia(id, res.media);
+    else if (res.reason === "denied")
+      toast.show("Allow the camera to take a photo");
+    else if (res.reason === "error") toast.show("Couldn’t add that file");
+  };
+
   const openPhotos = () => {
     if (locked) {
       toast.show(`${profile.name} hasn’t shared ${his} photos yet`);
@@ -145,7 +175,7 @@ export default function ChatScreen() {
           : m.from === "them"
             ? profile.name
             : "—";
-      return `[${new Date(m.at).toLocaleString()}] ${who}: ${m.text}`;
+      return `[${new Date(m.at).toLocaleString()}] ${who}: ${m.media ? `[${m.text}]` : m.text}`;
     });
     const body = [
       `Yonder chat with ${profile.fullName}`,
@@ -187,6 +217,7 @@ export default function ChatScreen() {
       ? messages.filter(
           (m) =>
             m.from !== "system" &&
+            !m.media &&
             m.text.toLowerCase().includes(search.trim().toLowerCase()),
         )
       : null;
@@ -373,7 +404,11 @@ export default function ChatScreen() {
                 ) : undefined
               }
               renderItem={({ item, index }) => (
-                <Bubble msg={item} newer={data[index - 1]} />
+                <Bubble
+                  msg={item}
+                  newer={data[index - 1]}
+                  onOpenMedia={setFullMedia}
+                />
               )}
             />
 
@@ -388,30 +423,62 @@ export default function ChatScreen() {
                   },
                 ]}
               >
-                <View
-                  style={[
-                    styles.inputBox,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <TextInput
-                    value={text}
-                    onChangeText={(t) => setText(t.slice(0, MAX))}
-                    placeholder="Type a message…"
-                    placeholderTextColor={colors.textSubtle}
-                    selectionColor={colors.primary}
-                    cursorColor={colors.primary}
-                    multiline
-                    style={[
-                      styles.input,
-                      { color: colors.text, fontFamily: fonts.regular },
-                    ]}
+                {recording ? (
+                  <VoiceRecorder
+                    onError={(m) => toast.show(m)}
+                    onDone={(media) => {
+                      setRecording(false);
+                      if (media) sendMedia(id, media);
+                    }}
                   />
-                </View>
-                <SendButton enabled={text.trim().length > 0} onPress={onSend} />
+                ) : (
+                  <>
+                    <InputIcon
+                      icon="images-outline"
+                      label="Send a photo or video"
+                      onPress={() => pick("gallery")}
+                    />
+                    <View
+                      style={[
+                        styles.inputBox,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <TextInput
+                        value={text}
+                        onChangeText={(t) => setText(t.slice(0, MAX))}
+                        placeholder="Type a message…"
+                        placeholderTextColor={colors.textSubtle}
+                        selectionColor={colors.primary}
+                        cursorColor={colors.primary}
+                        multiline
+                        style={[
+                          styles.input,
+                          { color: colors.text, fontFamily: fonts.regular },
+                        ]}
+                      />
+                    </View>
+                    {text.trim().length > 0 ? (
+                      <SendButton enabled onPress={onSend} />
+                    ) : (
+                      <>
+                        <InputIcon
+                          icon="camera-outline"
+                          label="Take a photo"
+                          onPress={() => pick("camera")}
+                        />
+                        <InputIcon
+                          icon="mic-outline"
+                          label="Record a voice message"
+                          onPress={() => setRecording(true)}
+                        />
+                      </>
+                    )}
+                  </>
+                )}
               </View>
             ) : null}
           </KeyboardAvoidingView>
@@ -541,6 +608,8 @@ export default function ChatScreen() {
         }}
       />
 
+      <FullMedia media={fullMedia} onClose={() => setFullMedia(null)} />
+
       <MediaViewer
         profile={viewing}
         onClose={() => setViewing(null)}
@@ -628,7 +697,41 @@ function Switch({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   );
 }
 
-function Bubble({ msg, newer }: { msg: ChatMessage; newer?: ChatMessage }) {
+function InputIcon({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={4}
+      style={({ pressed }) => [
+        styles.inputIcon,
+        { opacity: pressed ? 0.55 : 1 },
+      ]}
+    >
+      <Ionicons name={icon} size={25} color={colors.primary} />
+    </Pressable>
+  );
+}
+
+function Bubble({
+  msg,
+  newer,
+  onOpenMedia,
+}: {
+  msg: ChatMessage;
+  newer?: ChatMessage;
+  onOpenMedia: (m: ChatMedia) => void;
+}) {
   const colors = useTheme();
   if (msg.from === "system") {
     return (
@@ -643,29 +746,40 @@ function Bubble({ msg, newer }: { msg: ChatMessage; newer?: ChatMessage }) {
   // the time shows under the last bubble of a group (same sender, within 5 minutes)
   const lastOfGroup =
     !newer || newer.from !== msg.from || newer.at - msg.at > 5 * 60_000;
+  const media = msg.media;
   return (
     <Animated.View
       entering={FadeIn.duration(220)}
       style={[styles.bubbleWrap, mine ? styles.right : styles.left]}
     >
-      <View
-        style={[
-          styles.bubble,
-          mine
-            ? {
-                backgroundColor: colors.primary,
-                borderBottomRightRadius: lastOfGroup ? 6 : 20,
-              }
-            : {
-                backgroundColor: colors.surface,
-                borderBottomLeftRadius: lastOfGroup ? 6 : 20,
-              },
-        ]}
-      >
-        <AppText variant="body" color={mine ? colors.onPrimary : colors.text}>
-          {msg.text}
-        </AppText>
-      </View>
+      {media ? (
+        media.kind === "photo" ? (
+          <PhotoBubble media={media} onOpen={() => onOpenMedia(media)} />
+        ) : media.kind === "video" ? (
+          <VideoBubble media={media} onOpen={() => onOpenMedia(media)} />
+        ) : (
+          <AudioBubble media={media} mine={mine} />
+        )
+      ) : (
+        <View
+          style={[
+            styles.bubble,
+            mine
+              ? {
+                  backgroundColor: colors.primary,
+                  borderBottomRightRadius: lastOfGroup ? 6 : 20,
+                }
+              : {
+                  backgroundColor: colors.surface,
+                  borderBottomLeftRadius: lastOfGroup ? 6 : 20,
+                },
+          ]}
+        >
+          <AppText variant="body" color={mine ? colors.onPrimary : colors.text}>
+            {msg.text}
+          </AppText>
+        </View>
+      )}
       {lastOfGroup ? (
         <AppText
           variant="caption"
@@ -907,10 +1021,16 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
-    paddingHorizontal: 12,
+    gap: 6,
+    paddingHorizontal: 8,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  inputIcon: {
+    width: 36,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   inputBox: {
     flex: 1,

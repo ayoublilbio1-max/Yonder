@@ -12,6 +12,7 @@ import {
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatTime, useChats } from "../../chat/ChatProvider";
+import { mediaPreview } from "../../chat/media";
 import { AppButton } from "../../components/AppButton";
 import { AppText } from "../../components/AppText";
 import { Skeleton } from "../../components/Skeleton";
@@ -68,7 +69,11 @@ export default function ChatsScreen() {
     }
     rows.push({
       profile: p,
-      last: typing[id] ? "typing…" : lastMsg.text,
+      last: typing[id]
+        ? "typing…"
+        : lastMsg.media
+          ? mediaPreview(lastMsg.media)
+          : lastMsg.text,
       at: lastMsg.at,
       unread: t?.unread ?? 0,
       mine: lastMsg.from === "me",

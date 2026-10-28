@@ -71,6 +71,36 @@ export function replyFor(
   return fill(pick(SMALL_TALK, p, `talk-${turn}`), p, myName);
 }
 
+const MEDIA_REPLIES = {
+  photo: [
+    "Wow, nice photo! 😍",
+    "Haha I love this 😄",
+    "Where was that taken?",
+    "Great shot! You have good taste 📸",
+  ],
+  video: [
+    "Haha that’s so fun 😂",
+    "Cool video! Where is that?",
+    "I watched it twice 😄",
+    "Love the vibe of this 🙌",
+  ],
+  audio: [
+    "Haha I love your voice 😊",
+    "Aww that’s sweet, thank you 🥰",
+    "Voice notes are the best 😄",
+    "You sound nice! 😊",
+  ],
+};
+
+// Their reply to a photo / video / voice message you sent.
+export function mediaReplyFor(
+  p: Profile,
+  kind: "photo" | "video" | "audio",
+  turn: number,
+) {
+  return pick(MEDIA_REPLIES[kind], p, `media-${kind}-${turn}`);
+}
+
 // How long they "type" before the reply appears (ms).
 export function typingTime(text: string) {
   return Math.min(4200, 1200 + text.length * 35);

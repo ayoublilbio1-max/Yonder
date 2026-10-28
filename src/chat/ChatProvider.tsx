@@ -14,7 +14,7 @@ import { withOverrides } from "../filters/filters";
 import { profileById } from "../profiles/data";
 import { isLocked } from "../profiles/extras";
 import type { Profile } from "../profiles/types";
-import { openerFor, replyFor, writesFirst } from "./replies";
+import { mediaReplyFor, openerFor, replyFor, writesFirst } from "./replies";
 
 // Chats with your matches, saved on the phone per account (demo: the other side is simulated).
 // - About half of the matches write first, a few seconds after the match.
@@ -23,11 +23,22 @@ import { openerFor, replyFor, writesFirst } from "./replies";
 //   after you tap "Request photos". Once shared, they stay shared.
 // Mount it inside SwipeProvider (it reads your matches and compliments).
 
+export type MediaKind = "photo" | "video" | "audio";
+
+export type ChatMedia = {
+  kind: MediaKind;
+  uri: string; // file in the app's own folder (chat-media/)
+  width?: number;
+  height?: number;
+  durationMs?: number; // video / voice
+};
+
 export type ChatMessage = {
   id: string;
   from: "me" | "them" | "system";
-  text: string;
+  text: string; // for media: a short label ("Photo", "Voice message")
   at: number; // ms
+  media?: ChatMedia;
 };
 
 export type ChatThread = {
@@ -58,6 +69,7 @@ type ChatContextValue = {
   typing: Record<string, boolean>;
   profileFor: (id: string) => Profile | null; // with rule 9.4 details, unblurred once shared
   send: (id: string, text: string) => void;
+  sendMedia: (id: string, media: ChatMedia) => void; // a real photo / video / voice message from the phone
   requestPhotos: (id: string) => void;
   setActive: (id: string | null) => void; // the chat on screen (its messages don't count as unread)
   removeThread: (id: string) => void; // unmatch / block: the chat is deleted
@@ -144,6 +156,7 @@ export function ChatProvider({
       from: ChatMessage["from"],
       text: string,
       patch?: (t: ChatThread) => Partial<ChatThread>,
+      media?: ChatMedia,
     ) => {
       if (removed.current.has(id)) return;
       setThreads((prev) => {
@@ -156,7 +169,13 @@ export function ChatProvider({
             ...patch?.(t),
             messages: [
               ...t.messages,
-              { id: newId(), from, text, at: Date.now() },
+              {
+                id: newId(),
+                from,
+                text,
+                at: Date.now(),
+                ...(media ? { media } : {}),
+              },
             ],
             unread: incoming ? t.unread + 1 : t.unread,
           },
@@ -246,6 +265,37 @@ export function ChatProvider({
     [push, later, reveal, me.firstName],
   );
 
+  const sendMedia = useCallback(
+    (id: string, media: ChatMedia) => {
+      const p = profileById(id);
+      if (!p) return;
+      const label =
+        media.kind === "photo"
+          ? "Photo"
+          : media.kind === "video"
+            ? "Video"
+            : "Voice message";
+      push(id, "me", label, (t) => ({ sent: t.sent + 1 }), media);
+      if (__DEV__)
+        console.log(
+          `[chat] → ${id} ${media.kind}${media.durationMs ? ` ${Math.round(media.durationMs / 1000)}s` : ""}`,
+        );
+
+      const wait = 2200 + Math.round(Math.random() * 1600);
+      later(900, () => setTyping((prev) => ({ ...prev, [id]: true })));
+      later(900 + wait, () => {
+        const cur = threadsRef.current[id] ?? NEW_THREAD;
+        setTyping((prev) => ({ ...prev, [id]: false }));
+        push(id, "them", mediaReplyFor(p, media.kind, cur.replies), (t) => ({
+          replies: t.replies + 1,
+        }));
+        if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
+          later(1500, () => reveal(id));
+      });
+    },
+    [push, later, reveal],
+  );
+
   const requestPhotos = useCallback(
     (id: string) => {
       const p = profileById(id);
@@ -287,6 +337,7 @@ export function ChatProvider({
       typing,
       profileFor,
       send,
+      sendMedia,
       requestPhotos,
       setActive,
       removeThread,
@@ -297,6 +348,7 @@ export function ChatProvider({
       typing,
       profileFor,
       send,
+      sendMedia,
       requestPhotos,
       setActive,
       removeThread,
