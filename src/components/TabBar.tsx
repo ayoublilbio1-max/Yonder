@@ -1,4 +1,3 @@
-import * as Haptics from "expo-haptics";
 import { useRouter, type Href } from "expo-router";
 import { useEffect, type ComponentType } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -92,7 +91,6 @@ export function TabBar(props: TabBarProps) {
           });
           if (focused || event?.defaultPrevented) return;
 
-          Haptics.selectionAsync().catch(() => {});
           if (navigation?.navigate) {
             navigation.navigate(route.name, route.params);
           } else {

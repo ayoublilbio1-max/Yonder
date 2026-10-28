@@ -181,7 +181,7 @@ export default function SettingsScreen() {
           <Pressable
             onPress={() => {
               setSoundsEnabled(!soundsOn);
-              if (!soundsOn) playSound("like");
+              if (!soundsOn) playSound("purchase");
             }}
             accessibilityRole="switch"
             accessibilityState={{ checked: soundsOn }}
@@ -204,14 +204,14 @@ export default function SettingsScreen() {
                 App sounds
               </AppText>
               <AppText variant="bodySmall" muted>
-                Swipes, matches, boosts and payments
+                Matches, boosts and payments
               </AppText>
             </View>
             <Switch
               value={soundsOn}
               onValueChange={(on) => {
                 setSoundsEnabled(on);
-                if (on) playSound("like");
+                if (on) playSound("purchase");
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor={colors.card}

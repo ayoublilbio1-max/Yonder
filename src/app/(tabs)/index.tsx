@@ -1,5 +1,4 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -18,7 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useSharedValue } from "react-native-reanimated";
+import { useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
@@ -42,7 +41,7 @@ import { activeFilterCount } from "../../filters/filters";
 import { mainPhotoUri } from "../../profiles/data";
 import { isLocked } from "../../profiles/extras";
 import type { Profile } from "../../profiles/types";
-import { playSound, preloadSounds } from "../../sound/sounds";
+import { preloadSounds } from "../../sound/sounds";
 import { useBoostLeft } from "../../store/WalletProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 
@@ -129,25 +128,17 @@ export default function SwipeScreen() {
 
   // New top profile → back to the top of the page.
   const topId = top?.id;
+  // Reset the "card underneath grows" value only AFTER the new top card is on screen.
+  // (Resetting it earlier made the next card shrink back for a frame — the sharp zoom-out.)
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     busyRef.current = false;
-  }, [topId]);
-
-  // Sound + vibration the moment the swipe is decided (not when the card has finished leaving).
-  const onCommit = (action: SwipeAction) => {
-    playSound(action === "pass" ? "nope" : action);
-    if (action === "superlike")
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-        () => {},
-      );
-    else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-  };
+    progress.set(withTiming(0, { duration: 220 })); // the new card underneath settles softly
+  }, [topId, progress]);
 
   const onSwiped = (action: SwipeAction) => {
     busyRef.current = false;
     if (!top) return;
-    progress.set(0);
     swipe(top.id, action);
   };
 
@@ -160,16 +151,13 @@ export default function SwipeScreen() {
     }
     busyRef.current = true;
     scrollRef.current?.scrollTo({ y: 0, animated: true });
-    onCommit(action);
     if (flingRef.current) flingRef.current(action);
     else onSwiped(action);
   };
 
   const rewind = () => {
     if (busyRef.current) return;
-    const back = rewindLast();
-    if (back)
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    rewindLast();
   };
 
   const openMedia = () => {
@@ -208,9 +196,6 @@ export default function SwipeScreen() {
   const hide = (p: Profile, reason: string, message: string) => {
     block(p.id, reason);
     toast.show(message);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
-      () => {},
-    );
   };
 
   const topBar = (
@@ -300,7 +285,6 @@ export default function SwipeScreen() {
               isTop
               progress={progress}
               onSwiped={onSwiped}
-              onCommit={onCommit}
               onOpen={openMedia}
               registerFling={(fn) => {
                 flingRef.current = fn;
@@ -416,7 +400,6 @@ export default function SwipeScreen() {
           setComplimenting(null);
           if (!p) return;
           saveCompliment(p.id, text);
-          playSound("compliment");
           toast.show(`Compliment sent to ${p.name}`);
           // A compliment is also a like: the card leaves the deck.
           if (top && top.id === p.id) press("like");

@@ -1,10 +1,9 @@
-import * as Haptics from "expo-haptics";
 import {
-    ScrollView,
-    StyleSheet,
-    View,
-    type NativeScrollEvent,
-    type NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { AppText } from "../components/AppText";
 import { useTheme } from "../theme/ThemeProvider";
@@ -36,7 +35,6 @@ export function WheelColumn({ items, index, onChange, width, label }: Props) {
       ),
     );
     if (i !== index) {
-      Haptics.selectionAsync().catch(() => {});
       onChange(i);
     }
   };

@@ -1,3 +1,5 @@
+import type { Profile } from "./types";
+
 // Random values that are created once when the app opens and stay the same until it closes
 // (rule 9.1: shuffle once per session). A new app session gives a new order.
 
@@ -16,21 +18,19 @@ export function sessionRandom(key: string) {
   return (h >>> 0) / 4294967296;
 }
 
-// Demo distance shown everywhere, 1–35 km, fixed for the session.
-// Rule 9.4: location never runs out. With a "Distance" filter smaller than a profile's
+// Demo distance, 1–35 km, fixed for the session.
+// Rule 9.4: location never runs out. With a "Maximum distance" filter smaller than a profile's
 // distance, that profile is moved inside the chosen distance instead of being hidden.
-let distanceCap: number | null = null;
-
-export function setDistanceCap(km: number | null) {
-  distanceCap = km;
+export function distanceKm(profileId: string, maxKm: number | null = null) {
+  const d = 1 + Math.floor(sessionRandom(`${profileId}:distance`) * 35);
+  if (maxKm !== null && d > maxKm)
+    return 1 + Math.floor(sessionRandom(`${profileId}:near`) * maxKm);
+  return d;
 }
 
-export function distanceKm(profileId: string) {
-  const d = 1 + Math.floor(sessionRandom(`${profileId}:distance`) * 35);
-  if (distanceCap !== null && d > distanceCap) {
-    return 1 + Math.floor(sessionRandom(`${profileId}:near`) * distanceCap);
-  }
-  return d;
+// The distance to show for a profile from the deck (the filters already set it).
+export function profileKm(p: Profile) {
+  return p.km ?? distanceKm(p.id);
 }
 
 if (__DEV__) console.log(`[deck] session seed ${SESSION_SEED}`);

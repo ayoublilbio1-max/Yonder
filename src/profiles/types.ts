@@ -1,12 +1,8 @@
 // One demo profile from src/data/profiles.json (converted from profiles.md, no keys).
 
-export type ProfileGender = "female" | "male";
-export type ProfileIntent =
-  | "marriage"
-  | "serious_relationship"
-  | "new_friends"
-  | "for_fun";
-export type ProfileMarital = "neverMarried" | "divorced" | "widowed";
+export type ProfileGender = 'female' | 'male';
+export type ProfileIntent = 'marriage' | 'serious_relationship' | 'new_friends' | 'for_fun';
+export type ProfileMarital = 'neverMarried' | 'divorced' | 'widowed';
 
 export type Profile = {
   id: string; // p0001
@@ -36,6 +32,7 @@ export type Profile = {
   bio: string;
   photos: string[]; // file names, first = main photo (1.webp)
   video: string | null; // file name or null
+  km?: number; // distance shown in the app, set by the filters (rule 9.4: moved closer, never hidden)
 };
 
-export type MediaItem = { type: "photo" | "video"; uri: string };
+export type MediaItem = { type: 'photo' | 'video'; uri: string };

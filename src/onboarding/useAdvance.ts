@@ -1,4 +1,3 @@
-import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useRef } from "react";
 import { nextHref, type StepId } from "./steps";
@@ -12,7 +11,6 @@ export function useAdvance(id: StepId) {
     (delayMs = 160) => {
       if (busy.current) return;
       busy.current = true;
-      Haptics.selectionAsync().catch(() => {});
       setTimeout(() => {
         router.push(nextHref(id));
         busy.current = false;

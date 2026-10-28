@@ -13,7 +13,6 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSequence,
-  withSpring,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
@@ -28,7 +27,7 @@ import {
   isLocked,
   isRecentlyActive,
 } from "../profiles/extras";
-import { distanceKm } from "../profiles/session";
+import { profileKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
 import { useTheme } from "../theme/ThemeProvider";
 import type { SwipeAction } from "./SwipeProvider";
@@ -43,7 +42,6 @@ type Props = {
   isTop: boolean;
   progress: SharedValue<number>; // 0..1 how far the top card has moved (grows the card under it)
   onSwiped: (action: SwipeAction) => void; // the card has left the screen
-  onCommit?: (action: SwipeAction) => void; // the swipe is decided (sound + vibration now, not at the end)
   onOpen?: () => void; // tap → full-screen media
   registerFling?: (fn: FlingFn | null) => void; // lets the buttons swipe the top card
 };
@@ -51,21 +49,25 @@ type Props = {
 const SWIPE_X = 110; // px past which a drag counts as a swipe
 const FLING_VELOCITY = 900;
 
-// Button press: the card leans (soft overshoot) so the stamp lands, holds, then
-// accelerates away on a slight curve. The card underneath grows during the whole move.
-const LEAN_MS = 340;
-const HOLD_MS = 180;
-const OUT_MS = 420;
-const LEAN = { duration: LEAN_MS, easing: Easing.out(Easing.back(1.6)) };
-const OUT = { duration: OUT_MS, easing: Easing.in(Easing.quad) };
-const BACK_SPRING = { damping: 16, stiffness: 170, mass: 0.8 };
+// Smooth like CSS transitions: the same cubic-bezier curves as `ease`, `ease-out`, `ease-in-out`.
+const EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
+const EASE_OUT = Easing.bezier(0, 0, 0.58, 1);
+const EASE_IN_OUT = Easing.bezier(0.42, 0, 0.58, 1);
+
+// Button press: the card leans gently so the stamp shows, holds a moment, then glides away
+// on a soft curve while fading out. The card underneath grows during the whole move.
+const LEAN_MS = 380;
+const HOLD_MS = 140;
+const OUT_MS = 520;
+const LEAN = { duration: LEAN_MS, easing: EASE_OUT };
+const OUT = { duration: OUT_MS, easing: EASE_IN_OUT };
+const BACK = { duration: 320, easing: EASE }; // let go too early → glides back to the middle
 
 export function SwipeCard({
   profile,
   isTop,
   progress,
   onSwiped,
-  onCommit,
   onOpen,
   registerFling,
 }: Props) {
@@ -81,13 +83,12 @@ export function SwipeCard({
   // Finger swipe: keep the finger's speed and slow down smoothly as it leaves.
   const fling = (action: SwipeAction, velocityX: number) => {
     "worklet";
-    if (onCommit) scheduleOnRN(onCommit, action);
     const dir = action === "like" ? 1 : -1;
     const toX = dir * width * 1.5;
     const remaining = Math.abs(toX - tx.get());
-    const speed = Math.max(Math.abs(velocityX), 1200);
-    const duration = Math.min(420, Math.max(220, (remaining / speed) * 1000));
-    const ease = { duration, easing: Easing.out(Easing.quad) };
+    const speed = Math.max(Math.abs(velocityX), 1000);
+    const duration = Math.min(480, Math.max(300, (remaining / speed) * 1000));
+    const ease = { duration, easing: EASE_OUT };
     progress.set(withTiming(1, ease));
     ty.set(withTiming(ty.get() + 60, ease));
     tx.set(
@@ -99,7 +100,6 @@ export function SwipeCard({
 
   const buttonFling = (action: SwipeAction) => {
     "worklet";
-    // (buttons call this from JS; the screen plays the sound itself before calling it)
     const done = (finished?: boolean) => {
       "worklet";
       if (finished) scheduleOnRN(onSwiped, action);
@@ -107,7 +107,7 @@ export function SwipeCard({
     progress.set(
       withTiming(1, {
         duration: LEAN_MS + HOLD_MS + OUT_MS,
-        easing: Easing.inOut(Easing.quad),
+        easing: EASE_IN_OUT,
       }),
     );
     if (action === "superlike") {
@@ -128,8 +128,8 @@ export function SwipeCard({
     );
     ty.set(
       withSequence(
-        withTiming(-12, LEAN),
-        withDelay(HOLD_MS, withTiming(90, OUT)),
+        withTiming(-10, LEAN),
+        withDelay(HOLD_MS, withTiming(70, OUT)),
       ),
     );
   };
@@ -158,11 +158,9 @@ export function SwipeCard({
       else if (e.translationX < -SWIPE_X || e.velocityX < -FLING_VELOCITY)
         fling("pass", e.velocityX);
       else {
-        tx.set(withSpring(0, BACK_SPRING));
-        ty.set(withSpring(0, BACK_SPRING));
-        progress.set(
-          withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) }),
-        );
+        tx.set(withTiming(0, BACK));
+        ty.set(withTiming(0, BACK));
+        progress.set(withTiming(0, BACK));
       }
     },
   });
@@ -172,13 +170,20 @@ export function SwipeCard({
       const scale = interpolate(
         progress.get(),
         [0, 1],
-        [0.94, 1],
+        [0.95, 1],
         Extrapolation.CLAMP,
       );
       return { transform: [{ scale }] };
     }
-    const rotate = interpolate(tx.get(), [-width, width], [-12, 12]);
+    const rotate = interpolate(tx.get(), [-width, width], [-10, 10]);
+    // fades out softly as it leaves the screen (sideways or up)
+    const away = Math.max(
+      Math.abs(tx.get()) / width,
+      Math.abs(ty.get()) / height,
+    );
+    const opacity = interpolate(away, [0.6, 1.3], [1, 0], Extrapolation.CLAMP);
     return {
+      opacity,
       transform: [
         { translateX: tx.get() },
         { translateY: ty.get() },
@@ -450,7 +455,7 @@ export function SwipeCard({
               color={colors.onPhotoMuted}
             />
             <AppText variant="body" color={colors.onPhotoMuted}>
-              {distanceKm(profile.id)} km away
+              {profileKm(profile)} km away
             </AppText>
           </View>
         </View>

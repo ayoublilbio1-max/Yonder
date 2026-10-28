@@ -1,5 +1,4 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Haptics from "expo-haptics";
 import { getLocales } from "expo-localization";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native";
@@ -274,14 +273,8 @@ function CodeView({
       done.current = true;
       setError(null);
       setBannerVisible(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-        () => {},
-      );
       onVerified();
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(
-        () => {},
-      );
       setError("Wrong code. Check the message and try again.");
       setTimeout(() => setEntered(""), 500);
       if (__DEV__) console.log("[phone] wrong code entered");
@@ -298,7 +291,6 @@ function CodeView({
     if (entered.length >= CODE_LENGTH) return;
     const next = entered + key;
     setEntered(next);
-    Haptics.selectionAsync().catch(() => {});
     check(next);
   };
 

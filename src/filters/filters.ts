@@ -5,7 +5,7 @@ import {
   isLocked,
   lastActiveHours,
 } from "../profiles/extras";
-import { sessionRandom, setDistanceCap } from "../profiles/session";
+import { distanceKm, sessionRandom } from "../profiles/session";
 import type {
   Profile,
   ProfileGender,
@@ -314,9 +314,12 @@ export function applyFilters(
   f: Filters,
   show: ProfileGender,
 ): FilterResult {
-  setDistanceCap(f.distance); // rule 9.4: distance never empties the deck
   if (pool.length === 0) return { list: [], notice: "none" }; // still loading: never cache this
-  const key = `${show}|${pool.length}|${JSON.stringify(f)}`;
+  // the pool's first ids tell one shuffle from another
+  const key = `${show}|${pool.length}|${pool
+    .slice(0, 8)
+    .map((p) => p.id)
+    .join(",")}|${JSON.stringify(f)}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -369,7 +372,11 @@ export function applyFilters(
       `[filters] ${r.list.length} profiles in ${Date.now() - t0}ms · ${r.strict} match all · ${r.adjusted} adjusted · notice=${notice} · age ${ageLabel(f.ageMin, f.ageMax)} · distance=${f.distance ?? "any"}`,
     );
   }
-  const result = { list: r.list, notice };
+  // Rule 9.4: every profile gets its distance inside the chosen maximum (new objects, so the cards update).
+  const result = {
+    list: r.list.map((p) => ({ ...p, km: distanceKm(p.id, f.distance) })),
+    notice,
+  };
   cache.set(key, result);
   return result;
 }

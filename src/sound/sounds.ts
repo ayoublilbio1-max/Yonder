@@ -6,39 +6,25 @@ import {
 } from "expo-audio";
 import { useSyncExternalStore } from "react";
 
-// Short UI sounds (original, made for Yonder): swipe, match, boost, compliment, payment.
-// They mix with the tester's music (never pause it) and can be turned off in Settings › Sounds.
+// Short UI sounds (original, made for Yonder): only for big moments — a match, a boost starting
+// and a payment. Swipes are silent (vibration only). They mix with the tester's music (never pause
+// it) and can be turned off in Settings › Sounds.
 
-export type SoundName =
-  | "like"
-  | "nope"
-  | "superlike"
-  | "match"
-  | "boost"
-  | "compliment"
-  | "purchase";
+export type SoundName = "match" | "boost" | "purchase";
 
 const FILES: Record<SoundName, number> = {
-  like: require("../../assets/sounds/like.wav"),
-  nope: require("../../assets/sounds/nope.wav"),
-  superlike: require("../../assets/sounds/superlike.wav"),
   match: require("../../assets/sounds/match.wav"),
   boost: require("../../assets/sounds/boost.wav"),
-  compliment: require("../../assets/sounds/compliment.wav"),
   purchase: require("../../assets/sounds/purchase.wav"),
 };
 
 const VOLUME: Record<SoundName, number> = {
-  like: 0.9,
-  nope: 0.85,
-  superlike: 0.95,
   match: 1,
   boost: 0.95,
-  compliment: 0.9,
   purchase: 0.95,
 };
 
-// 2 players per sound: a quick second swipe plays on the other one instead of cutting / skipping.
+// 2 players per sound: playing it again quickly uses the other one instead of cutting / skipping.
 const POOL = 2;
 
 const KEY = "yonder.sounds"; // 'on' | 'off' (one setting for the whole phone)

@@ -85,6 +85,8 @@ export function SwipeProvider({
   const [saved, setSaved] = useState<Saved>(EMPTY);
   const [sessionSwiped, setSessionSwiped] = useState<Swiped[]>([]);
   const { wallet } = useWallet(); // WalletProvider wraps SwipeProvider in (tabs)/_layout
+  const [round, setRound] = useState(0); // +1 each time filters are applied → reshuffled deck
+  const [lastTopId, setLastTopId] = useState<string | null>(null); // never the same face first after a reshuffle
 
   useEffect(() => {
     let alive = true;
@@ -136,8 +138,8 @@ export function SwipeProvider({
   );
   // Full session order → filters (rule 9.4) → hide swiped / blocked → sort.
   const pool = useMemo(
-    () => (ready ? buildDeck(show, new Set()) : []),
-    [ready, show],
+    () => (ready ? buildDeck(show, new Set(), round) : []),
+    [ready, show, round],
   );
   const activeFilters = useMemo(
     () => (wallet.gold ? saved.filters : withoutGold(saved.filters)),
@@ -147,18 +149,20 @@ export function SwipeProvider({
     () => applyFilters(pool, activeFilters, show),
     [pool, activeFilters, show],
   );
-  const deck = useMemo(
-    () =>
-      sortDeck(
-        filtered.list.filter((p) => !hiddenIds.has(p.id)),
-        saved.sort,
-        me,
-      ),
-    [filtered, hiddenIds, saved.sort, me],
-  );
+  const deck = useMemo(() => {
+    const list = sortDeck(
+      filtered.list.filter((p) => !hiddenIds.has(p.id)),
+      saved.sort,
+      me,
+    );
+    if (lastTopId && list.length > 1 && list[0].id === lastTopId)
+      [list[0], list[1]] = [list[1], list[0]];
+    return list;
+  }, [filtered, hiddenIds, saved.sort, me, lastTopId]);
 
   const swipe = useCallback((id: string, action: SwipeAction) => {
     setSessionSwiped((prev) => [...prev, { id, action }]);
+    setLastTopId(null); // the reshuffle swap is only for the first card after Apply
     setSaved((prev) => ({
       ...prev,
       decisions: { ...prev.decisions, [id]: action },
@@ -223,10 +227,20 @@ export function SwipeProvider({
     if (__DEV__) console.log(`[sort] ${sort}`);
   }, []);
 
-  const setFilters = useCallback((filters: Filters) => {
-    setSaved((prev) => ({ ...prev, filters }));
-    if (__DEV__) console.log("[filters] applied", JSON.stringify(filters));
-  }, []);
+  const topNow = deck[0]?.id ?? null;
+  const setFilters = useCallback(
+    (filters: Filters) => {
+      setSaved((prev) => ({ ...prev, filters }));
+      setLastTopId(topNow);
+      setRound((r) => r + 1);
+      if (__DEV__)
+        console.log(
+          "[filters] applied · deck reshuffled",
+          JSON.stringify(filters),
+        );
+    },
+    [topNow],
+  );
 
   const markNotificationsSeen = useCallback(() => {
     setSaved((prev) => ({ ...prev, notificationsSeenAt: Date.now() }));

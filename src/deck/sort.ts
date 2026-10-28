@@ -2,7 +2,7 @@ import type Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
 import type { ProfileDraft } from "../onboarding/types";
 import { joinedDaysAgo, lastActiveHours } from "../profiles/extras";
-import { distanceKm } from "../profiles/session";
+import { profileKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
 import { INTENT_MAP } from "./similarities";
 
@@ -74,7 +74,7 @@ export function sortDeck(
   > = {
     age_asc: (p) => p.age,
     age_desc: (p) => -p.age,
-    distance: (p) => distanceKm(p.id),
+    distance: (p) => profileKm(p),
     just_joined: (p) => joinedDaysAgo(p),
     recently_active: (p) => lastActiveHours(p),
     verified: (p) => (p.verified ? 0 : 1),

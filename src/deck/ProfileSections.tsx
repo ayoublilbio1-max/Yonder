@@ -11,7 +11,7 @@ import {
   PERSONALITY_NAME,
   SMOKING_LABEL,
 } from "../profiles/extras";
-import { distanceKm } from "../profiles/session";
+import { profileKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
 import { useTheme } from "../theme/ThemeProvider";
 import { myInterestSet, similaritiesOf } from "./similarities";
@@ -120,7 +120,7 @@ export function ProfileSections({
     { icon: "flame-outline", label: SMOKING_LABEL[profile.smoking] ?? "" },
     { icon: "wine-outline", label: DRINKING_LABEL[profile.drinking] ?? "" },
     { icon: "earth-outline", label: profile.origins },
-    { icon: "location-outline", label: `${distanceKm(profile.id)} km away` },
+    { icon: "location-outline", label: `${profileKm(profile)} km away` },
   ];
   const about = aboutAll.filter(
     (a) => a.label && a.label !== "Prefer not to say",
