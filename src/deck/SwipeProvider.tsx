@@ -30,7 +30,7 @@ import { sortDeck, type SortKey } from "./sort";
 // Mount it with key={userId}.
 
 export type SwipeAction = "like" | "pass" | "superlike";
-type Swiped = { id: string; action: SwipeAction };
+type Swiped = { id: string; action: SwipeAction; counters: MatchCounters }; // counters = before this swipe
 
 type Saved = {
   decisions: Record<string, SwipeAction>;
@@ -168,7 +168,10 @@ export function SwipeProvider({
   const swipe = useCallback(
     (id: string, action: SwipeAction) => {
       const { matched, next } = decideMatch(saved.matchCounters, action);
-      setSessionSwiped((prev) => [...prev, { id, action }]);
+      setSessionSwiped((prev) => [
+        ...prev,
+        { id, action, counters: saved.matchCounters },
+      ]);
       setLastTopId(null); // the reshuffle swap is only for the first card after Apply
       setSaved((prev) => ({
         ...prev,
@@ -198,7 +201,8 @@ export function SwipeProvider({
     setSaved((prev) => {
       const decisions = { ...prev.decisions };
       delete decisions[last.id];
-      return { ...prev, decisions };
+      // the rewound swipe no longer counts toward the next match
+      return { ...prev, decisions, matchCounters: last.counters };
     });
     if (__DEV__) console.log(`[deck] rewind ${last.id} (${last.action})`);
     return buildDeck(show, new Set()).find((p) => p.id === last.id) ?? null;

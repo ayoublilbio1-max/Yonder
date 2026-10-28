@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter, type Href } from "expo-router";
 import {
   useEffect,
   useMemo,
@@ -21,7 +22,6 @@ import { useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../../components/AppText";
 import { ConfirmModal } from "../../components/ConfirmModal";
-import { NotInDemoModal } from "../../components/NotInDemoModal";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { actionGradients } from "../../constants/colors";
@@ -59,6 +59,7 @@ export default function SwipeScreen() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const toast = useToast();
+  const router = useRouter();
   const {
     ready,
     show,
@@ -87,7 +88,6 @@ export default function SwipeScreen() {
   const [complimenting, setComplimenting] = useState<Profile | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   const [match, setMatch] = useState<Profile | null>(null); // "It's a match!" screen
-  const [notInDemo, setNotInDemo] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterCount = activeFilterCount(saved.filters);
   const [boostOpen, setBoostOpen] = useState(false);
@@ -418,15 +418,10 @@ export default function SwipeScreen() {
         myName={me.firstName}
         onClose={() => setMatch(null)}
         onMessage={() => {
+          const id = match?.id;
           setMatch(null);
-          setNotInDemo("Chats");
+          if (id) router.push(`/chat/${id}` as Href);
         }}
-      />
-
-      <NotInDemoModal
-        visible={notInDemo !== null}
-        feature={notInDemo ?? ""}
-        onClose={() => setNotInDemo(null)}
       />
 
       <FiltersModal
