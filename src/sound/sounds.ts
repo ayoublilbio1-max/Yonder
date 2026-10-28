@@ -47,9 +47,18 @@ AsyncStorage.getItem(KEY)
 function poolFor(name: SoundName) {
   let list = players[name];
   if (!list) {
-    list = Array.from({ length: POOL }, () => {
+    list = Array.from({ length: POOL }, (_, n) => {
       const p = createAudioPlayer(FILES[name]);
       p.volume = VOLUME[name];
+      if (__DEV__) {
+        // one log when the native player reports it is ready (tells us if loading works)
+        const sub = p.addListener("playbackStatusUpdate", (status) => {
+          if (status.isLoaded) {
+            sub.remove();
+            console.log(`[sound] ${name} player ${n + 1} ready`);
+          }
+        });
+      }
       return p;
     });
     players[name] = list;
@@ -70,10 +79,10 @@ export function preloadSounds() {
 }
 
 function start(p: AudioPlayer) {
-  // Back to the beginning first (a finished player stays at its end), THEN play.
+  // Back to the beginning first (a finished player stays at its end), then play.
   p.seekTo(0)
-    .then(() => p.play())
-    .catch(() => p.play());
+    .catch(() => {})
+    .finally(() => p.play());
 }
 
 export function playSound(name: SoundName) {
@@ -83,14 +92,13 @@ export function playSound(name: SoundName) {
     const i = nextIndex[name] ?? 0;
     nextIndex[name] = (i + 1) % list.length;
     const p = list[i];
-    if (p.isLoaded) {
-      start(p);
-    } else {
-      // Not loaded yet (first seconds after opening the app): play as soon as it is.
+    // Always ask it to play now. If the native player was still loading, ask again once it's ready.
+    start(p);
+    if (!p.isLoaded) {
       const sub = p.addListener("playbackStatusUpdate", (status) => {
         if (status.isLoaded) {
           sub.remove();
-          start(p);
+          if (!status.playing) start(p);
         }
       });
     }
