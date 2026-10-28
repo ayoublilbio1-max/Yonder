@@ -53,6 +53,7 @@ export type ChatThread = {
   requested: boolean; // you tapped "Request photos"
   replies: number; // how many times they replied (picks the next reply)
   sent: number; // how many messages you sent
+  timedSent?: boolean; // they already sent you their timed photo
 };
 
 const NEW_THREAD: ChatThread = {
@@ -90,7 +91,7 @@ export function ChatProvider({
   userId: string;
   children: ReactNode;
 }) {
-  const { ready: swipeReady, saved, me } = useSwipe();
+  const { ready: swipeReady, saved, me, unmatch } = useSwipe();
   const toast = useToast();
   const [ready, setReady] = useState(false);
   const [threads, setThreads] = useState<Record<string, ChatThread>>({});
@@ -267,19 +268,15 @@ export function ChatProvider({
         if (__DEV__) console.log(`[chat] ← ${id} reply #${cur.replies + 1}`);
         if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
           later(1500, () => reveal(id));
-        // Some matches send you a timed photo after a few messages (never while their photos are private).
+        // Every match sends you one timed photo, from their 3rd reply on (never while their photos are private).
         const canShare = !isLocked(p) || cur.revealed;
-        const photo = mediaOf(p).filter((m) => m.type === "photo")[1];
-        if (
-          cur.replies === 2 &&
-          canShare &&
-          photo &&
-          sessionRandom(`${p.id}:timed`) < 0.6
-        ) {
+        const photos = mediaOf(p).filter((m) => m.type === "photo");
+        const photo = photos[1] ?? photos[0];
+        if (cur.replies >= 2 && !cur.timedSent && canShare && photo) {
           const timer: PhotoTimer =
             sessionRandom(`${p.id}:timer`) < 0.5 ? "once" : 5;
           later(2500, () =>
-            push(id, "them", "Photo", undefined, {
+            push(id, "them", timerLabel(timer), () => ({ timedSent: true }), {
               kind: "photo",
               uri: photo.uri,
               timer,
@@ -288,7 +285,9 @@ export function ChatProvider({
             }),
           );
           if (__DEV__)
-            console.log(`[chat] ${id} will send a ${timerLabel(timer)} photo`);
+            console.log(
+              `[chat] ${id} will send a timed photo (${timerLabel(timer)})`,
+            );
         }
       });
     },
@@ -403,6 +402,28 @@ export function ChatProvider({
     setTyping((prev) => ({ ...prev, [id]: false }));
     if (__DEV__) console.log(`[chat] ${id} chat deleted`);
   }, []);
+
+  // Real apps: some matches unmatch you. Here at most one per app session: a match you never
+  // wrote to, matched more than 30 minutes ago (about 1 in 3 of them).
+  const ghostChecked = useRef(false);
+  useEffect(() => {
+    if (!ready || !swipeReady || ghostChecked.current) return;
+    ghostChecked.current = true;
+    const quiet = Object.entries(saved.matches).find(
+      ([id, at]) =>
+        Date.now() - at > 30 * 60_000 &&
+        (threads[id]?.sent ?? 0) === 0 &&
+        sessionRandom(`${id}:ghost`) < 0.35,
+    );
+    if (!quiet) return;
+    const [id] = quiet;
+    later(4000, () => {
+      unmatch(id, "They unmatched you", "them");
+      removeThread(id);
+    });
+    if (__DEV__) console.log(`[chat] ${id} will unmatch you (simulated)`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, swipeReady]);
 
   const value = useMemo(
     () => ({

@@ -13,6 +13,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatTime, useChats } from "../../chat/ChatProvider";
 import { mediaPreview } from "../../chat/media";
+import { UnmatchedModal } from "../../chat/UnmatchedModal";
 import { AppButton } from "../../components/AppButton";
 import { AppText } from "../../components/AppText";
 import { Skeleton } from "../../components/Skeleton";
@@ -49,6 +50,7 @@ export default function ChatsScreen() {
   const { wallet } = useWallet();
   const [filter, setFilter] = useState<Filter>("all");
   const [goldOpen, setGoldOpen] = useState(false);
+  const [unmatchedOpen, setUnmatchedOpen] = useState(false);
   const { ready, threads, typing, profileFor } = useChats();
 
   const matchIds = Object.entries(saved.matches)
@@ -122,9 +124,27 @@ export default function ChatsScreen() {
         { backgroundColor: colors.bg, paddingTop: insets.top + 12 },
       ]}
     >
-      <AppText variant="title" style={styles.title}>
-        Chats
-      </AppText>
+      <View style={styles.titleRow}>
+        <AppText variant="title" style={styles.flex}>
+          Chats
+        </AppText>
+        <Pressable
+          onPress={() => setUnmatchedOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Unmatched"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.titleBtn,
+            { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Ionicons
+            name="heart-dislike-outline"
+            size={21}
+            color={colors.text}
+          />
+        </Pressable>
+      </View>
 
       {loading ? (
         <View style={styles.pad}>
@@ -363,6 +383,12 @@ export default function ChatsScreen() {
         />
       )}
 
+      <UnmatchedModal
+        visible={unmatchedOpen}
+        unmatched={saved.unmatched}
+        onClose={() => setUnmatchedOpen(false)}
+      />
+
       <GoldSheet
         visible={goldOpen}
         variant="likes"
@@ -414,9 +440,18 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  title: {
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     marginBottom: 8,
+  },
+  titleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   pad: {
     paddingHorizontal: 20,

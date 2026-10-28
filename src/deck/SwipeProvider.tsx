@@ -32,6 +32,7 @@ import { sortDeck, type SortKey } from "./sort";
 // Mount it with key={userId}.
 
 export type SwipeAction = "like" | "pass" | "superlike";
+export type Unmatch = { at: number; by: "me" | "them"; reason: string };
 type Swiped = { id: string; action: SwipeAction; counters: MatchCounters }; // counters = before this swipe
 
 type Saved = {
@@ -41,6 +42,7 @@ type Saved = {
   compliments: Record<string, string>;
   matches: Record<string, number>; // profile id → when it matched (ms)
   matchCounters: MatchCounters;
+  unmatched: Record<string, Unmatch>; // everyone you unmatched or who unmatched you
   sort: SortKey;
   filters: Filters;
   notificationsSeenAt: number; // last time the list was opened (ms)
@@ -53,6 +55,7 @@ const EMPTY: Saved = {
   compliments: {},
   matches: {},
   matchCounters: EMPTY_COUNTERS,
+  unmatched: {},
   sort: "recommended",
   filters: DEFAULT_FILTERS,
   notificationsSeenAt: 0,
@@ -72,7 +75,7 @@ type SwipeContextValue = {
   saved: Saved;
   toggleFavorite: (id: string) => boolean; // returns the new state
   block: (id: string, reason: string) => void;
-  unmatch: (id: string, reason: string) => void; // removes the match and hides the person for good
+  unmatch: (id: string, reason: string, by?: "me" | "them") => void; // removes the match and hides the person for good
   saveCompliment: (id: string, text: string) => void;
   setSort: (sort: SortKey) => void;
   setFilters: (filters: Filters) => void;
@@ -271,20 +274,27 @@ export function SwipeProvider({
     if (__DEV__) console.log(`[deck] blocked ${id} · ${reason}`);
   }, []);
 
-  const unmatch = useCallback((id: string, reason: string) => {
-    setSaved((prev) => {
-      const matches = { ...prev.matches };
-      delete matches[id];
-      return {
-        ...prev,
-        matches,
-        blocked: prev.blocked.includes(id)
-          ? prev.blocked
-          : [...prev.blocked, id],
-      };
-    });
-    if (__DEV__) console.log(`[deck] unmatched ${id} · ${reason}`);
-  }, []);
+  const unmatch = useCallback(
+    (id: string, reason: string, by: "me" | "them" = "me") => {
+      setSaved((prev) => {
+        const matches = { ...prev.matches };
+        delete matches[id];
+        return {
+          ...prev,
+          matches,
+          blocked: prev.blocked.includes(id)
+            ? prev.blocked
+            : [...prev.blocked, id],
+          unmatched: {
+            ...prev.unmatched,
+            [id]: { at: Date.now(), by, reason },
+          },
+        };
+      });
+      if (__DEV__) console.log(`[deck] unmatched ${id} · by ${by} · ${reason}`);
+    },
+    [],
+  );
 
   const saveCompliment = useCallback((id: string, text: string) => {
     setSaved((prev) => ({
