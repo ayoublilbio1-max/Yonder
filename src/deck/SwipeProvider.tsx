@@ -72,6 +72,7 @@ type SwipeContextValue = {
   saved: Saved;
   toggleFavorite: (id: string) => boolean; // returns the new state
   block: (id: string, reason: string) => void;
+  unmatch: (id: string, reason: string) => void; // removes the match and hides the person for good
   saveCompliment: (id: string, text: string) => void;
   setSort: (sort: SortKey) => void;
   setFilters: (filters: Filters) => void;
@@ -270,6 +271,21 @@ export function SwipeProvider({
     if (__DEV__) console.log(`[deck] blocked ${id} · ${reason}`);
   }, []);
 
+  const unmatch = useCallback((id: string, reason: string) => {
+    setSaved((prev) => {
+      const matches = { ...prev.matches };
+      delete matches[id];
+      return {
+        ...prev,
+        matches,
+        blocked: prev.blocked.includes(id)
+          ? prev.blocked
+          : [...prev.blocked, id],
+      };
+    });
+    if (__DEV__) console.log(`[deck] unmatched ${id} · ${reason}`);
+  }, []);
+
   const saveCompliment = useCallback((id: string, text: string) => {
     setSaved((prev) => ({
       ...prev,
@@ -321,6 +337,7 @@ export function SwipeProvider({
       saved,
       toggleFavorite,
       block,
+      unmatch,
       saveCompliment,
       setSort,
       setFilters,
@@ -340,6 +357,7 @@ export function SwipeProvider({
       saved,
       toggleFavorite,
       block,
+      unmatch,
       saveCompliment,
       setSort,
       setFilters,

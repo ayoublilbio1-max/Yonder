@@ -60,6 +60,7 @@ type ChatContextValue = {
   send: (id: string, text: string) => void;
   requestPhotos: (id: string) => void;
   setActive: (id: string | null) => void; // the chat on screen (its messages don't count as unread)
+  removeThread: (id: string) => void; // unmatch / block: the chat is deleted
 };
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -79,6 +80,7 @@ export function ChatProvider({
   const threadsRef = useRef(threads); // latest chats, for replies that arrive later
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const scheduled = useRef(new Set<string>()); // openers already planned this session
+  const removed = useRef(new Set<string>()); // unmatched / blocked: late replies are dropped
 
   useEffect(() => {
     let alive = true;
@@ -143,6 +145,7 @@ export function ChatProvider({
       text: string,
       patch?: (t: ChatThread) => Partial<ChatThread>,
     ) => {
+      if (removed.current.has(id)) return;
       setThreads((prev) => {
         const t = prev[id] ?? NEW_THREAD;
         const incoming = from === "them" && activeRef.current !== id;
@@ -266,6 +269,17 @@ export function ChatProvider({
       );
   }, []);
 
+  const removeThread = useCallback((id: string) => {
+    removed.current.add(id);
+    setThreads((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setTyping((prev) => ({ ...prev, [id]: false }));
+    if (__DEV__) console.log(`[chat] ${id} chat deleted`);
+  }, []);
+
   const value = useMemo(
     () => ({
       ready,
@@ -275,8 +289,18 @@ export function ChatProvider({
       send,
       requestPhotos,
       setActive,
+      removeThread,
     }),
-    [ready, threads, typing, profileFor, send, requestPhotos, setActive],
+    [
+      ready,
+      threads,
+      typing,
+      profileFor,
+      send,
+      requestPhotos,
+      setActive,
+      removeThread,
+    ],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

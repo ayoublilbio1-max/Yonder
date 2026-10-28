@@ -1,8 +1,20 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native";
+import * as Sharing from "expo-sharing";
+import { useEffect, useState, type ComponentProps } from "react";
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  TextInput,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Animated, {
   Easing,
@@ -15,32 +27,60 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CallModal, type CallKind } from "../../chat/CallModal";
+import { ChatOptions } from "../../chat/ChatOptions";
 import { chatTime, useChats, type ChatMessage } from "../../chat/ChatProvider";
 import { AppText } from "../../components/AppText";
+import { ConfirmModal } from "../../components/ConfirmModal";
 import { useToast } from "../../components/Toast";
 import { fonts } from "../../constants/fonts";
 import { MediaViewer } from "../../deck/MediaViewer";
+import { ProfileCard } from "../../deck/ProfileCard";
+import { ProfileSections } from "../../deck/ProfileSections";
+import { ReportSheet } from "../../deck/ReportSheet";
+import { useSwipe } from "../../deck/SwipeProvider";
 import { mainPhotoUri } from "../../profiles/data";
 import { isLocked } from "../../profiles/extras";
 import type { Profile } from "../../profiles/types";
 import { useTheme } from "../../theme/ThemeProvider";
 
-// One chat with a match. Newest messages at the bottom, typing dots while they "write",
-// "Request photos" for locked profiles (rule 9.3). The keyboard pushes the input up.
+// A match's page (like Muzz): top bar (back · photo · name · audio · video · ⋮) and a
+// Chat / Profile switch. Chat = the messages; Profile = their card + all the sections + Unmatch.
+// ⋮ opens "Chat options": calls, share, search, export, unmatch, block, report.
 
 const EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
 const MAX = 500;
 
+type IconName = ComponentProps<typeof Ionicons>["name"];
+type Tab = "chat" | "profile";
+type Confirm = "unmatch" | "block" | null;
+
 export default function ChatScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const router = useRouter();
   const toast = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { threads, typing, profileFor, send, requestPhotos, setActive } =
-    useChats();
+  const {
+    threads,
+    typing,
+    profileFor,
+    send,
+    requestPhotos,
+    setActive,
+    removeThread,
+  } = useChats();
+  const { me, saved, toggleFavorite, unmatch } = useSwipe();
+
+  const [tab, setTab] = useState<Tab>("chat");
   const [text, setText] = useState("");
   const [viewing, setViewing] = useState<Profile | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [call, setCall] = useState<CallKind | null>(null);
+  const [confirm, setConfirm] = useState<Confirm>(null);
+  const [reporting, setReporting] = useState(false);
+  const [search, setSearch] = useState<string | null>(null); // null = not searching
 
   const profile = id ? profileFor(id) : null;
   const thread = id ? threads[id] : undefined;
@@ -69,6 +109,8 @@ export default function ChatScreen() {
   }
 
   const him = profile.gender === "male";
+  const his = him ? "his" : "her";
+
   const onSend = () => {
     if (!text.trim()) return;
     send(id, text);
@@ -77,170 +119,510 @@ export default function ChatScreen() {
 
   const openPhotos = () => {
     if (locked) {
-      toast.show(
-        `${profile.name} hasn’t shared ${him ? "his" : "her"} photos yet`,
-      );
+      toast.show(`${profile.name} hasn’t shared ${his} photos yet`);
       return;
     }
     setViewing(profile);
   };
 
-  // FlatList is inverted (newest at the bottom, starts scrolled down).
-  const data = [...messages].reverse();
+  const share = async () => {
+    try {
+      const res = await Share.share({
+        message: `Check out ${profile.name}, ${profile.age} on Yonder (demo profile).`,
+      });
+      if (__DEV__) console.log(`[chat] share ${id} → ${res.action}`);
+    } catch (e) {
+      if (__DEV__) console.log("[chat] share failed", String(e));
+    }
+  };
+
+  // Export: a text file with the whole chat, then the phone's share menu (save, email, WhatsApp…).
+  const exportChat = async () => {
+    const lines = messages.map((m) => {
+      const who =
+        m.from === "me"
+          ? me.firstName || "Me"
+          : m.from === "them"
+            ? profile.name
+            : "—";
+      return `[${new Date(m.at).toLocaleString()}] ${who}: ${m.text}`;
+    });
+    const body = [
+      `Yonder chat with ${profile.fullName}`,
+      `Exported ${new Date().toLocaleString()}`,
+      "",
+      ...lines,
+    ].join("\n");
+    try {
+      const file = new File(Paths.cache, `Yonder chat - ${profile.name}.txt`);
+      if (file.exists) file.delete();
+      file.create();
+      file.write(body);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: "text/plain",
+          dialogTitle: `Chat with ${profile.name}`,
+        });
+      } else {
+        await Share.share({ message: body });
+      }
+      if (__DEV__)
+        console.log(`[chat] exported ${id} · ${messages.length} messages`);
+    } catch (e) {
+      if (__DEV__) console.log("[chat] export failed", String(e));
+      toast.show("Couldn’t export the chat");
+    }
+  };
+
+  // Unmatch / block / report: the match and the chat are removed, they never show again.
+  const leave = (reason: string, message: string) => {
+    unmatch(id, reason);
+    removeThread(id);
+    toast.show(message);
+    router.back();
+  };
+
+  const results =
+    search && search.trim()
+      ? messages.filter(
+          (m) =>
+            m.from !== "system" &&
+            m.text.toLowerCase().includes(search.trim().toLowerCase()),
+        )
+      : null;
+  const data = [...(results ?? messages)].reverse(); // inverted list: newest first
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
+      {/* ---------- top bar ---------- */}
       <View
         style={[
           styles.header,
-          {
-            paddingTop: insets.top + 6,
-            borderBottomColor: colors.border,
-            backgroundColor: colors.bg,
-          },
+          { paddingTop: insets.top + 6, backgroundColor: colors.bg },
         ]}
       >
-        <Pressable
+        <HeaderIcon
+          icon="arrow-back"
+          label="Back"
           onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          hitSlop={10}
-          style={styles.headerBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </Pressable>
-        <Pressable
-          onPress={openPhotos}
-          accessibilityRole="button"
-          style={styles.headerWho}
-        >
-          <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
-            <Image
-              source={{ uri: mainPhotoUri(profile) }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              blurRadius={locked ? 30 : 0}
-              transition={200}
-            />
-          </View>
-          <View style={styles.flex}>
-            <View style={styles.nameRow}>
-              <AppText variant="body" weight="semibold" numberOfLines={1}>
-                {profile.name}, {profile.age}
-              </AppText>
-              {profile.verified ? (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={16}
-                  color={colors.verified}
-                />
-              ) : null}
-            </View>
-            <AppText
-              variant="caption"
-              color={isTyping ? colors.primary : colors.textMuted}
-            >
-              {isTyping ? "typing…" : profile.city}
-            </AppText>
-          </View>
-        </Pressable>
-      </View>
-
-      {locked ? (
-        <View
-          style={[
-            styles.lockBar,
-            {
-              backgroundColor: colors.surface,
-              borderBottomColor: colors.border,
-            },
-          ]}
-        >
-          <Ionicons name="lock-closed" size={18} color={colors.textMuted} />
-          <AppText variant="caption" muted style={styles.flex}>
-            {profile.name}’s photos are private. They’re shared as you get to
-            know each other.
-          </AppText>
-          <Pressable
-            onPress={() => requestPhotos(id)}
-            disabled={thread?.requested}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.requestBtn,
-              {
-                backgroundColor: colors.primary,
-                opacity: thread?.requested ? 0.5 : pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <AppText variant="caption" weight="bold" color={colors.onPrimary}>
-              {thread?.requested ? "Requested" : "Request photos"}
-            </AppText>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <KeyboardAvoidingView behavior="padding" style={styles.flex}>
-        <FlatList
-          data={data}
-          inverted
-          keyExtractor={(m) => m.id}
-          contentContainerStyle={styles.messages}
-          ListHeaderComponent={isTyping ? <TypingBubble /> : undefined}
-          ListFooterComponent={
-            <View style={styles.matchNote}>
-              <AppText variant="caption" muted align="center">
-                You matched with {profile.name}. Say hi 👋
-              </AppText>
-            </View>
-          }
-          renderItem={({ item, index }) => (
-            <Bubble msg={item} newer={data[index - 1]} />
-          )}
         />
-
-        <View
-          style={[
-            styles.inputBar,
-            {
-              borderTopColor: colors.border,
-              backgroundColor: colors.bg,
-              paddingBottom: Math.max(insets.bottom, 10),
-            },
-          ]}
-        >
+        {search !== null ? (
           <View
             style={[
-              styles.inputBox,
+              styles.searchBox,
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
+            <Ionicons name="search" size={18} color={colors.textMuted} />
             <TextInput
-              value={text}
-              onChangeText={(t) => setText(t.slice(0, MAX))}
-              placeholder="Type a message…"
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search this chat"
               placeholderTextColor={colors.textSubtle}
               selectionColor={colors.primary}
               cursorColor={colors.primary}
-              multiline
+              autoFocus
               style={[
-                styles.input,
+                styles.searchInput,
                 { color: colors.text, fontFamily: fonts.regular },
               ]}
             />
+            <Pressable
+              onPress={() => setSearch(null)}
+              accessibilityRole="button"
+              accessibilityLabel="Close search"
+              hitSlop={10}
+            >
+              <Ionicons name="close" size={20} color={colors.textMuted} />
+            </Pressable>
           </View>
-          <SendButton enabled={text.trim().length > 0} onPress={onSend} />
-        </View>
-      </KeyboardAvoidingView>
+        ) : (
+          <>
+            <Pressable
+              onPress={() => setTab("profile")}
+              accessibilityRole="button"
+              style={styles.headerWho}
+            >
+              <View
+                style={[styles.avatar, { backgroundColor: colors.surface }]}
+              >
+                <Image
+                  source={{ uri: mainPhotoUri(profile) }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  blurRadius={locked ? 30 : 0}
+                  transition={200}
+                />
+              </View>
+              <View style={styles.flex}>
+                <View style={styles.nameRow}>
+                  <AppText
+                    variant="body"
+                    weight="semibold"
+                    numberOfLines={1}
+                    style={styles.shrink}
+                  >
+                    {profile.name}
+                  </AppText>
+                  {profile.verified ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={colors.verified}
+                    />
+                  ) : null}
+                </View>
+                <AppText
+                  variant="caption"
+                  color={isTyping ? colors.primary : colors.textMuted}
+                  numberOfLines={1}
+                >
+                  {isTyping
+                    ? "typing…"
+                    : profile.verified
+                      ? "Verified"
+                      : "Not verified"}
+                </AppText>
+              </View>
+            </Pressable>
+            <HeaderIcon
+              icon="call-outline"
+              label="Audio call"
+              onPress={() => setCall("audio")}
+            />
+            <HeaderIcon
+              icon="videocam-outline"
+              label="Video call"
+              onPress={() => setCall("video")}
+            />
+            <HeaderIcon
+              icon="ellipsis-vertical"
+              label="Chat options"
+              onPress={() => setOptionsOpen(true)}
+            />
+          </>
+        )}
+      </View>
+
+      {search === null ? <Switch tab={tab} onChange={setTab} /> : null}
+
+      {search !== null && results ? (
+        <AppText variant="caption" muted style={styles.resultCount}>
+          {results.length} {results.length === 1 ? "message" : "messages"} found
+        </AppText>
+      ) : null}
+
+      {/* ---------- Chat ---------- */}
+      {tab === "chat" || search !== null ? (
+        <>
+          {locked && search === null ? (
+            <View
+              style={[
+                styles.lockBar,
+                {
+                  backgroundColor: colors.surface,
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <Ionicons name="lock-closed" size={18} color={colors.textMuted} />
+              <AppText variant="caption" muted style={styles.flex}>
+                {profile.name}’s photos are private. They’re shared as you get
+                to know each other.
+              </AppText>
+              <Pressable
+                onPress={() => requestPhotos(id)}
+                disabled={thread?.requested}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.requestBtn,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: thread?.requested ? 0.5 : pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <AppText
+                  variant="caption"
+                  weight="bold"
+                  color={colors.onPrimary}
+                >
+                  {thread?.requested ? "Requested" : "Request photos"}
+                </AppText>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+            <FlatList
+              data={data}
+              inverted
+              keyExtractor={(m) => m.id}
+              contentContainerStyle={styles.messages}
+              ListHeaderComponent={
+                isTyping && search === null ? <TypingBubble /> : undefined
+              }
+              ListFooterComponent={
+                search === null ? (
+                  <View style={styles.matchNote}>
+                    <AppText variant="caption" muted align="center">
+                      You matched with {profile.name}. Say hi 👋
+                    </AppText>
+                  </View>
+                ) : undefined
+              }
+              renderItem={({ item, index }) => (
+                <Bubble msg={item} newer={data[index - 1]} />
+              )}
+            />
+
+            {search === null ? (
+              <View
+                style={[
+                  styles.inputBar,
+                  {
+                    borderTopColor: colors.border,
+                    backgroundColor: colors.bg,
+                    paddingBottom: Math.max(insets.bottom, 10),
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.inputBox,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    value={text}
+                    onChangeText={(t) => setText(t.slice(0, MAX))}
+                    placeholder="Type a message…"
+                    placeholderTextColor={colors.textSubtle}
+                    selectionColor={colors.primary}
+                    cursorColor={colors.primary}
+                    multiline
+                    style={[
+                      styles.input,
+                      { color: colors.text, fontFamily: fonts.regular },
+                    ]}
+                  />
+                </View>
+                <SendButton enabled={text.trim().length > 0} onPress={onSend} />
+              </View>
+            ) : null}
+          </KeyboardAvoidingView>
+        </>
+      ) : (
+        /* ---------- Profile ---------- */
+        <Animated.View entering={FadeIn.duration(220)} style={styles.flex}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.profileContent,
+              { paddingBottom: insets.bottom + 24 },
+            ]}
+          >
+            <ProfileCard
+              profile={profile}
+              height={Math.round(height * 0.58)}
+              onOpen={openPhotos}
+            />
+            <ProfileSections
+              profile={profile}
+              me={me}
+              isFavorite={saved.favorites.includes(id)}
+              onFavorite={() => {
+                const on = toggleFavorite(id);
+                toast.show(
+                  on
+                    ? `${profile.name} added to your favorites`
+                    : `${profile.name} removed from favorites`,
+                );
+              }}
+              onBlock={() => setConfirm("block")}
+              onReport={() => setReporting(true)}
+              onShare={share}
+            />
+            <Pressable
+              onPress={() => setConfirm("unmatch")}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.unmatch,
+                { borderColor: colors.danger, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Ionicons
+                name="heart-dislike-outline"
+                size={20}
+                color={colors.danger}
+              />
+              <AppText variant="body" weight="semibold" color={colors.danger}>
+                Unmatch {profile.name}
+              </AppText>
+            </Pressable>
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* ---------- overlays ---------- */}
+      <ChatOptions
+        profile={optionsOpen ? profile : null}
+        onClose={() => setOptionsOpen(false)}
+        onAudio={() => {
+          setOptionsOpen(false);
+          setCall("audio");
+        }}
+        onVideo={() => {
+          setOptionsOpen(false);
+          setCall("video");
+        }}
+        onShare={share}
+        onSearch={() => {
+          setOptionsOpen(false);
+          setTab("chat");
+          setSearch("");
+        }}
+        onExport={exportChat}
+        onUnmatch={() => {
+          setOptionsOpen(false);
+          setConfirm("unmatch");
+        }}
+        onBlock={() => {
+          setOptionsOpen(false);
+          setConfirm("block");
+        }}
+        onReport={() => {
+          setOptionsOpen(false);
+          setReporting(true);
+        }}
+      />
+
+      <CallModal
+        profile={call ? profile : null}
+        kind={call}
+        onClose={() => setCall(null)}
+      />
+
+      <ConfirmModal
+        visible={confirm !== null}
+        icon={confirm === "block" ? "ban-outline" : "heart-dislike-outline"}
+        title={
+          confirm === "block"
+            ? `Block ${profile.name}?`
+            : `Unmatch ${profile.name}?`
+        }
+        message={
+          confirm === "block"
+            ? `${profile.name} won’t see you again and this chat will be deleted. ${him ? "He" : "She"} won’t be told.`
+            : `You’ll disappear from each other’s matches and this chat will be deleted.`
+        }
+        confirmLabel={confirm === "block" ? "Block" : "Unmatch"}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const what = confirm;
+          setConfirm(null);
+          if (what === "block") leave("block", `${profile.name} is blocked`);
+          else leave("unmatch", `You unmatched ${profile.name}`);
+        }}
+      />
+
+      <ReportSheet
+        profile={reporting ? profile : null}
+        onClose={() => setReporting(false)}
+        onReport={(reason) => {
+          setReporting(false);
+          leave(
+            `report: ${reason}`,
+            `Thanks. ${profile.name} was reported and blocked.`,
+          );
+        }}
+      />
 
       <MediaViewer
         profile={viewing}
         onClose={() => setViewing(null)}
         onReport={() => {
           setViewing(null);
-          toast.show("Reporting from a chat comes with the profile page");
+          setReporting(true);
         }}
+      />
+    </View>
+  );
+}
+
+function HeaderIcon({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.headerBtn,
+        { opacity: pressed ? 0.6 : 1 },
+      ]}
+    >
+      <Ionicons name={icon} size={23} color={colors.text} />
+    </Pressable>
+  );
+}
+
+// Chat | Profile switch: the pink line slides under the chosen one (CSS-like ease).
+function Switch({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  const colors = useTheme();
+  const [w, setW] = useState(0);
+  const x = useSharedValue(tab === "chat" ? 0 : 1);
+
+  useEffect(() => {
+    x.set(withTiming(tab === "chat" ? 0 : 1, { duration: 240, easing: EASE }));
+  }, [tab, x]);
+
+  const lineStyle = useAnimatedStyle(() => ({
+    width: w / 2,
+    transform: [{ translateX: (x.get() * w) / 2 }],
+  }));
+  const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);
+
+  return (
+    <View
+      style={[styles.switch, { borderBottomColor: colors.border }]}
+      onLayout={onLayout}
+    >
+      {(["chat", "profile"] as Tab[]).map((t) => (
+        <Pressable
+          key={t}
+          onPress={() => onChange(t)}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === t }}
+          style={styles.switchBtn}
+        >
+          <AppText
+            variant="body"
+            weight="semibold"
+            color={tab === t ? colors.primary : colors.textMuted}
+          >
+            {t === "chat" ? "Chat" : "Profile"}
+          </AppText>
+        </Pressable>
+      ))}
+      <Animated.View
+        style={[
+          styles.switchLine,
+          { backgroundColor: colors.primary },
+          lineStyle,
+        ]}
       />
     </View>
   );
@@ -258,7 +640,7 @@ function Bubble({ msg, newer }: { msg: ChatMessage; newer?: ChatMessage }) {
     );
   }
   const mine = msg.from === "me";
-  // show the time under the last bubble of a group (same sender, within 5 minutes)
+  // the time shows under the last bubble of a group (same sender, within 5 minutes)
   const lastOfGroup =
     !newer || newer.from !== msg.from || newer.at - msg.at > 5 * 60_000;
   return (
@@ -392,13 +774,15 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  shrink: {
+    flexShrink: 1,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingBottom: 8,
   },
   headerBtn: {
     width: 40,
@@ -411,17 +795,55 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginLeft: 2,
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     overflow: "hidden",
   },
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    minHeight: 40,
+    marginRight: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 22,
+    paddingVertical: 6,
+  },
+  resultCount: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  switch: {
+    flexDirection: "row",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  switchBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 11,
+  },
+  switchLine: {
+    position: "absolute",
+    left: 0,
+    bottom: 0,
+    height: 3,
+    borderRadius: 2,
   },
   lockBar: {
     flexDirection: "row",
@@ -510,5 +932,20 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+  },
+  profileContent: {
+    paddingTop: 12,
+    gap: 0,
+  },
+  unmatch: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 4,
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 1.5,
   },
 });
