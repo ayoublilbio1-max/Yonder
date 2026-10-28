@@ -1,14 +1,18 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "../components/AppText";
 import { Checkout, type CheckoutItem } from "../components/Checkout";
 import { Sheet } from "../components/Sheet";
 import { useToast } from "../components/Toast";
+import { mainPhotoUri } from "../profiles/data";
+import type { Profile } from "../profiles/types";
 import { formatUsd, useWallet } from "../store/WalletProvider";
 import { useTheme } from "../theme/ThemeProvider";
 
-// Yonder Gold (demo): unlocks the advanced filters. Bought through the demo checkout.
+// Yonder Gold (demo): see who likes you + advanced filters. Bought through the demo checkout.
+// variant 'likes' (from the Chats / Likes screens) shows the blurred people who liked you on top.
 
 const PLANS = [
   { key: "week", title: "1 week", price: 9.99 },
@@ -16,19 +20,34 @@ const PLANS = [
   { key: "quarter", title: "3 months", price: 49.99, tag: "Best value" },
 ];
 
-const PERKS = [
-  "Advanced filters: verified, recently active, just joined, complete bio, Gold members",
-  "A Gold badge on your profile",
-  "Stand out to people who use advanced filters",
-];
+const PERKS = {
+  filters: [
+    "Advanced filters: verified, recently active, just joined, complete bio, Gold members",
+    "See everyone who likes you",
+    "A Gold badge on your profile",
+  ],
+  likes: [
+    "See everyone who likes you",
+    "Like them back for an instant match",
+    "Advanced filters and a Gold badge on your profile",
+  ],
+};
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onJoined?: () => void;
+  variant?: "filters" | "likes";
+  likers?: Profile[]; // variant 'likes': who liked you (shown blurred)
 };
 
-export function GoldSheet({ visible, onClose, onJoined }: Props) {
+export function GoldSheet({
+  visible,
+  onClose,
+  onJoined,
+  variant = "filters",
+  likers = [],
+}: Props) {
   const colors = useTheme();
   const toast = useToast();
   const { update } = useWallet();
@@ -40,19 +59,42 @@ export function GoldSheet({ visible, onClose, onJoined }: Props) {
     <>
       <Sheet visible={visible && buying === null} onClose={onClose}>
         <View style={styles.header}>
-          <View style={[styles.icon, { backgroundColor: colors.goldSoft }]}>
-            <Ionicons name="star" size={28} color={colors.gold} />
-          </View>
+          {variant === "likes" && likers.length ? (
+            <View style={styles.likers}>
+              {likers.slice(0, 3).map((p, i) => (
+                <View
+                  key={p.id}
+                  style={[
+                    styles.liker,
+                    { borderColor: colors.card, marginLeft: i ? -18 : 0 },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: mainPhotoUri(p) }}
+                    style={StyleSheet.absoluteFill}
+                    blurRadius={40}
+                    contentFit="cover"
+                  />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={[styles.icon, { backgroundColor: colors.goldSoft }]}>
+              <Ionicons name="star" size={28} color={colors.gold} />
+            </View>
+          )}
           <AppText variant="title" align="center">
-            Yonder Gold
+            {variant === "likes" ? "See who likes you" : "Yonder Gold"}
           </AppText>
           <AppText variant="bodySmall" muted align="center">
-            Find exactly who you’re looking for.
+            {variant === "likes"
+              ? `${likers.length} ${likers.length === 1 ? "person likes" : "people like"} you. Match with them instantly with Yonder Gold.`
+              : "Find exactly who you’re looking for."}
           </AppText>
         </View>
 
         <View style={styles.perks}>
-          {PERKS.map((t) => (
+          {PERKS[variant].map((t) => (
             <View key={t} style={styles.perk}>
               <Ionicons name="checkmark-circle" size={20} color={colors.gold} />
               <AppText variant="bodySmall" style={styles.flex}>
@@ -120,6 +162,16 @@ export function GoldSheet({ visible, onClose, onJoined }: Props) {
             Continue
           </AppText>
         </Pressable>
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          hitSlop={8}
+          style={styles.later}
+        >
+          <AppText variant="bodySmall" weight="semibold" muted align="center">
+            Maybe later
+          </AppText>
+        </Pressable>
       </Sheet>
 
       <Checkout
@@ -184,6 +236,20 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: "center",
     paddingVertical: 2,
+  },
+  likers: {
+    flexDirection: "row",
+    marginBottom: 6,
+  },
+  liker: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    overflow: "hidden",
+  },
+  later: {
+    paddingVertical: 4,
   },
   cta: {
     flexDirection: "row",

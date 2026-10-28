@@ -17,6 +17,8 @@ import {
 } from "../filters/filters";
 import { profileDraftKey } from "../onboarding/OnboardingProvider";
 import type { ProfileDraft } from "../onboarding/types";
+import { PROFILES } from "../profiles/data";
+import { sessionRandom } from "../profiles/session";
 import type { Profile, ProfileGender } from "../profiles/types";
 import { useWallet } from "../store/WalletProvider";
 import { buildDeck } from "./buildDeck";
@@ -62,6 +64,7 @@ type SwipeContextValue = {
   show: ProfileGender; // who the tester sees
   me: ProfileDraft; // the tester's own onboarding answers (for "Your similarities")
   deck: Profile[];
+  likedYou: Profile[]; // people who liked you (simulated, grows as you swipe); like them back = instant match
   swipe: (id: string, action: SwipeAction) => boolean; // true = it's a match
   rewindLast: () => Profile | null;
   canRewind: boolean;
@@ -154,6 +157,30 @@ export function SwipeProvider({
     () => applyFilters(pool, activeFilters, show),
     [pool, activeFilters, show],
   );
+  // "Likes you" (demo): 2 people at the start, +1 every 4 swipes (max 30). Never someone you
+  // already swiped, matched or blocked. Liking one of them back is an instant match.
+  const swipeCount = Object.keys(saved.decisions).length;
+  const likedYou = useMemo(() => {
+    if (!ready) return [];
+    const count = Math.min(30, 2 + Math.floor(swipeCount / 4));
+    return PROFILES.filter(
+      (p) =>
+        p.gender === show &&
+        !saved.decisions[p.id] &&
+        !saved.matches[p.id] &&
+        !saved.blocked.includes(p.id),
+    )
+      .sort(
+        (a, b) =>
+          sessionRandom(`${a.id}:likesyou`) - sessionRandom(`${b.id}:likesyou`),
+      )
+      .slice(0, count);
+  }, [ready, show, swipeCount, saved.decisions, saved.matches, saved.blocked]);
+  const likedYouIds = useMemo(
+    () => new Set(likedYou.map((p) => p.id)),
+    [likedYou],
+  );
+
   const deck = useMemo(() => {
     const list = sortDeck(
       filtered.list.filter((p) => !hiddenIds.has(p.id)),
@@ -167,7 +194,12 @@ export function SwipeProvider({
 
   const swipe = useCallback(
     (id: string, action: SwipeAction) => {
-      const { matched, next } = decideMatch(saved.matchCounters, action);
+      const rules = decideMatch(saved.matchCounters, action);
+      const likedBack = action !== "pass" && likedYouIds.has(id); // they already liked you
+      const matched = rules.matched || likedBack;
+      const next = matched
+        ? { ...rules.next, swipesSinceMatch: 0 }
+        : rules.next;
       setSessionSwiped((prev) => [
         ...prev,
         { id, action, counters: saved.matchCounters },
@@ -181,12 +213,12 @@ export function SwipeProvider({
       }));
       if (__DEV__) {
         console.log(
-          `[deck] ${action} ${id}${matched ? " → MATCH" : ""} · swipes since match ${next.swipesSinceMatch} · super likes ${next.supersSinceMatch}`,
+          `[deck] ${action} ${id}${matched ? (likedBack ? " → MATCH (liked you)" : " → MATCH") : ""} · swipes since match ${next.swipesSinceMatch} · super likes ${next.supersSinceMatch}`,
         );
       }
       return matched;
     },
-    [saved.matchCounters],
+    [saved.matchCounters, likedYouIds],
   );
 
   const rewindLast = useCallback(() => {
@@ -281,6 +313,7 @@ export function SwipeProvider({
       show,
       me,
       deck,
+      likedYou,
       swipe,
       rewindLast,
       canRewind,
@@ -299,6 +332,7 @@ export function SwipeProvider({
       show,
       me,
       deck,
+      likedYou,
       swipe,
       rewindLast,
       canRewind,

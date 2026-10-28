@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
+import { useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -14,14 +15,16 @@ import { chatTime, useChats } from "../../chat/ChatProvider";
 import { AppButton } from "../../components/AppButton";
 import { AppText } from "../../components/AppText";
 import { Skeleton } from "../../components/Skeleton";
+import { GoldSheet } from "../../deck/GoldSheet";
 import { useSwipe } from "../../deck/SwipeProvider";
 import { mainPhotoUri } from "../../profiles/data";
 import { isLocked } from "../../profiles/extras";
 import type { Profile } from "../../profiles/types";
+import { useWallet } from "../../store/WalletProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 
-// Chats (like Muzz): "New matches" in a row on top (no messages yet), then the conversations,
-// newest first, with the last message and an unread count.
+// Chats (like Muzz): a blurred "likes you" circle + "New matches" in a row on top, then the
+// conversations (All / Unread / Read), newest first, with the last message and an unread count.
 
 type Row = {
   profile: Profile;
@@ -30,12 +33,21 @@ type Row = {
   unread: number;
   mine: boolean;
 };
+type Filter = "all" | "unread" | "read";
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "read", label: "Read" },
+];
 
 export default function ChatsScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { ready: swipeReady, saved } = useSwipe();
+  const { ready: swipeReady, saved, likedYou } = useSwipe();
+  const { wallet } = useWallet();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [goldOpen, setGoldOpen] = useState(false);
   const { ready, threads, typing, profileFor } = useChats();
 
   const matchIds = Object.entries(saved.matches)
@@ -63,6 +75,23 @@ export default function ChatsScreen() {
     });
   });
   rows.sort((a, b) => b.at - a.at);
+  const unreadCount = rows.filter((r) => r.unread > 0).length;
+  const shown = rows.filter((r) =>
+    filter === "all"
+      ? true
+      : filter === "unread"
+        ? r.unread > 0
+        : r.unread === 0,
+  );
+
+  const openLikes = () => {
+    if (__DEV__)
+      console.log(
+        `[chat] likes circle · ${likedYou.length} · gold=${wallet.gold}`,
+      );
+    if (wallet.gold) router.navigate("/likes" as Href);
+    else setGoldOpen(true);
+  };
 
   const open = (id: string) => {
     if (__DEV__) console.log(`[chat] open ${id}`);
@@ -93,7 +122,7 @@ export default function ChatsScreen() {
             <Skeleton key={i} style={styles.rowSkeleton} />
           ))}
         </View>
-      ) : matchIds.length === 0 ? (
+      ) : matchIds.length === 0 && likedYou.length === 0 ? (
         <Animated.View entering={FadeIn.duration(250)} style={styles.empty}>
           <View
             style={[styles.emptyIcon, { backgroundColor: colors.primarySoft }]}
@@ -119,56 +148,131 @@ export default function ChatsScreen() {
         </Animated.View>
       ) : (
         <FlatList
-          data={rows}
+          data={shown}
           keyExtractor={(r) => r.profile.id}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
-            fresh.length ? (
-              <View style={styles.freshWrap}>
-                <AppText variant="label" muted style={styles.section}>
-                  NEW MATCHES
-                </AppText>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.freshRow}
-                >
-                  {fresh.map((p) => (
-                    <Pressable
-                      key={p.id}
-                      onPress={() => open(p.id)}
-                      accessibilityRole="button"
-                      style={styles.fresh}
-                    >
-                      <View
-                        style={[
-                          styles.freshRing,
-                          { borderColor: colors.primary },
-                        ]}
-                      >
-                        <Avatar profile={p} size={64} />
-                      </View>
-                      <AppText
-                        variant="caption"
-                        weight="medium"
-                        numberOfLines={1}
-                      >
-                        {p.name}
-                      </AppText>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                {rows.length ? (
+            <View>
+              {likedYou.length || fresh.length ? (
+                <>
                   <AppText variant="label" muted style={styles.section}>
-                    MESSAGES
+                    NEW MATCHES
                   </AppText>
-                ) : null}
-              </View>
-            ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.freshRow}
+                  >
+                    {likedYou.length ? (
+                      <Pressable
+                        onPress={openLikes}
+                        accessibilityRole="button"
+                        style={styles.fresh}
+                      >
+                        <View
+                          style={[
+                            styles.freshRing,
+                            { borderColor: colors.gold },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.likesCircle,
+                              { backgroundColor: colors.surface },
+                            ]}
+                          >
+                            <Image
+                              source={{ uri: mainPhotoUri(likedYou[0]) }}
+                              style={StyleSheet.absoluteFill}
+                              contentFit="cover"
+                              blurRadius={wallet.gold ? 0 : 40}
+                              cachePolicy="memory-disk"
+                            />
+                            <View
+                              style={[StyleSheet.absoluteFill, styles.lock]}
+                            >
+                              <Ionicons
+                                name="heart"
+                                size={22}
+                                color={colors.onPhoto}
+                              />
+                            </View>
+                          </View>
+                        </View>
+                        <AppText
+                          variant="caption"
+                          weight="semibold"
+                          color={colors.gold}
+                          numberOfLines={1}
+                        >
+                          {likedYou.length}{" "}
+                          {likedYou.length === 1 ? "like" : "likes"}
+                        </AppText>
+                      </Pressable>
+                    ) : null}
+                    {fresh.map((p) => (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => open(p.id)}
+                        accessibilityRole="button"
+                        style={styles.fresh}
+                      >
+                        <View
+                          style={[
+                            styles.freshRing,
+                            { borderColor: colors.primary },
+                          ]}
+                        >
+                          <Avatar profile={p} size={64} />
+                        </View>
+                        <AppText
+                          variant="caption"
+                          weight="medium"
+                          numberOfLines={1}
+                        >
+                          {p.name}
+                        </AppText>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : null}
+
               <AppText variant="label" muted style={styles.section}>
                 MESSAGES
               </AppText>
-            )
+              <View style={styles.chips}>
+                {FILTERS.map((f) => {
+                  const on = filter === f.key;
+                  return (
+                    <Pressable
+                      key={f.key}
+                      onPress={() => setFilter(f.key)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: on ? colors.primary : colors.surface,
+                          borderColor: on ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="bodySmall"
+                        weight="semibold"
+                        color={on ? colors.onPrimary : colors.text}
+                      >
+                        {f.label}
+                        {f.key === "unread" && unreadCount
+                          ? ` (${unreadCount})`
+                          : ""}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           }
           ListEmptyComponent={
             <AppText
@@ -177,7 +281,11 @@ export default function ChatsScreen() {
               align="center"
               style={styles.noMessages}
             >
-              Say hi to your new matches 👋
+              {rows.length === 0
+                ? "Say hi to your new matches 👋"
+                : filter === "unread"
+                  ? "No unread messages"
+                  : "No read chats yet"}
             </AppText>
           }
           renderItem={({ item }) => (
@@ -239,6 +347,13 @@ export default function ChatsScreen() {
           )}
         />
       )}
+
+      <GoldSheet
+        visible={goldOpen}
+        variant="likes"
+        likers={likedYou}
+        onClose={() => setGoldOpen(false)}
+      />
     </View>
   );
 }
@@ -301,9 +416,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: 0.8,
   },
-  freshWrap: {
-    gap: 0,
-  },
   freshRow: {
     flexDirection: "row",
     gap: 14,
@@ -318,6 +430,24 @@ const styles = StyleSheet.create({
     padding: 2,
     borderWidth: 2,
     borderRadius: 40,
+  },
+  likesCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: "hidden",
+  },
+  chips: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 6,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   freshSkeleton: {
     width: 64,
