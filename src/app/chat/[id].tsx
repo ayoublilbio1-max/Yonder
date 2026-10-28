@@ -5,14 +5,14 @@ import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Animated, {
-    Easing,
-    FadeIn,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withRepeat,
-    withSequence,
-    withTiming,
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatTime, useChats, type ChatMessage } from "../../chat/ChatProvider";
@@ -187,7 +187,7 @@ export default function ChatScreen() {
           inverted
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.messages}
-          ListHeaderComponent={isTyping ? <TypingBubble /> : null}
+          ListHeaderComponent={isTyping ? <TypingBubble /> : undefined}
           ListFooterComponent={
             <View style={styles.matchNote}>
               <AppText variant="caption" muted align="center">
