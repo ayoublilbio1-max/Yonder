@@ -1,19 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState, type ReactNode } from "react";
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  View,
-} from "react-native";
+import { Modal, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "../components/AppButton";
 import { AppText } from "../components/AppText";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { PressableScale } from "../components/PressableScale";
 import { RangeSlider } from "../components/RangeSlider";
 import {
   ACTIVE_OPTIONS,
@@ -31,6 +25,7 @@ import {
   OPTIONS,
   type Filters,
 } from "../filters/filters";
+import { DURATION, EASE_OUT } from "../motion/ease";
 import { INTENT_LABEL } from "../profiles/data";
 import {
   DRINKING_LABEL,
@@ -39,6 +34,7 @@ import {
   SMOKING_LABEL,
 } from "../profiles/extras";
 import type { ProfileIntent, ProfileMarital } from "../profiles/types";
+import { useDistanceUnit } from "../settings/units";
 import { useWallet } from "../store/WalletProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { GoldSheet } from "./GoldSheet";
@@ -182,6 +178,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { wallet } = useWallet();
+  const unit = useDistanceUnit();
   const [draft, setDraft] = useState<Filters>(value);
   const [page, setPage] = useState<PageKey | null>(null);
   const [goldOpen, setGoldOpen] = useState(false);
@@ -254,7 +251,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
         {page === null ? (
           <Animated.View
             key="main"
-            entering={FadeIn.duration(160)}
+            entering={FadeIn.duration(DURATION.quick + 40).easing(EASE_OUT)}
             style={styles.root}
           >
             <Header
@@ -303,7 +300,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                     weight="semibold"
                     color={colors.primary}
                   >
-                    {distanceLabel(draft.distance)}
+                    {distanceLabel(draft.distance, unit)}
                   </AppText>
                 </View>
                 <RangeSlider
@@ -359,9 +356,10 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                 <AppText variant="heading">Advanced filters</AppText>
               </View>
               {!wallet.gold ? (
-                <Pressable
+                <PressableScale
                   onPress={() => setGoldOpen(true)}
                   accessibilityRole="button"
+                  scaleTo={0.98}
                   style={[
                     styles.goldCard,
                     {
@@ -383,7 +381,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                     size={18}
                     color={colors.gold}
                   />
-                </Pressable>
+                </PressableScale>
               ) : null}
               <View
                 style={[
@@ -453,7 +451,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
         ) : (
           <Animated.View
             key={page}
-            entering={SlideInRight.duration(220)}
+            entering={SlideInRight.duration(DURATION.page).easing(EASE_OUT)}
             style={styles.root}
           >
             <Header
@@ -656,15 +654,16 @@ function HeaderIcon({
 }) {
   const colors = useTheme();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={10}
+      scaleTo={0.88}
       style={styles.headerBtn}
     >
       <Ionicons name={icon} size={25} color={colors.text} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -679,11 +678,13 @@ function HeaderText({
 }) {
   const colors = useTheme();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       hitSlop={10}
+      scaleTo={0.94}
+      dimTo={0.7}
     >
       <AppText
         variant="body"
@@ -692,7 +693,7 @@ function HeaderText({
       >
         {label}
       </AppText>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -727,17 +728,18 @@ function Row({
 }) {
   const colors = useTheme();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${title}: ${value}`}
-      style={({ pressed }) => [
+      scaleTo={0.99}
+      dimTo={0.6}
+      style={[
         styles.row,
         !first && {
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
         },
-        { opacity: pressed ? 0.6 : 1 },
       ]}
     >
       <AppText variant="body" style={styles.flex}>
@@ -756,7 +758,7 @@ function Row({
         {value}
       </AppText>
       <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -782,8 +784,10 @@ function OptionRow({
       ? "checkbox"
       : "square-outline";
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
+      scaleTo={0.99}
+      dimTo={0.6}
       accessibilityRole={radio ? "radio" : "checkbox"}
       accessibilityState={radio ? { selected } : { checked: selected }}
       style={[
@@ -806,7 +810,7 @@ function OptionRow({
         size={22}
         color={selected ? colors.primary : colors.textSubtle}
       />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -825,8 +829,10 @@ function SwitchRow({
 }) {
   const colors = useTheme();
   return (
-    <Pressable
+    <PressableScale
       onPress={() => onChange(!value)}
+      scaleTo={0.99}
+      dimTo={0.7}
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
       style={[
@@ -849,7 +855,7 @@ function SwitchRow({
         trackColor={{ false: colors.border, true: colors.primary }}
         thumbColor={colors.card}
       />
-    </Pressable>
+    </PressableScale>
   );
 }
 

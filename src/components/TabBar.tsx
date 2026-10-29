@@ -1,9 +1,16 @@
 import { useRouter, type Href } from "expo-router";
-import { useEffect, type ComponentType } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useEffect, type ComponentType, type ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DURATION, EASE } from "../motion/ease";
 import { useTheme } from "../theme/ThemeProvider";
 import { AppText } from "./AppText";
+import { PressableScale } from "./PressableScale";
 import {
   ChatsIcon,
   ExploreIcon,
@@ -104,16 +111,19 @@ export function TabBar(props: TabBarProps) {
         };
 
         return (
-          <Pressable
+          <PressableScale
             key={route.key}
             onPress={onPress}
             onLongPress={onLongPress}
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
             accessibilityLabel={label}
+            scaleTo={0.92}
             style={styles.item}
           >
-            <Icon focused={focused} color={color} cutColor={colors.tabBar} />
+            <TabIcon focused={focused}>
+              <Icon focused={focused} color={color} cutColor={colors.tabBar} />
+            </TabIcon>
             <AppText
               variant="caption"
               weight={focused ? "semibold" : "medium"}
@@ -121,11 +131,34 @@ export function TabBar(props: TabBarProps) {
             >
               {label}
             </AppText>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
   );
+}
+
+// The selected tab's icon grows a little with a CSS-like ease (no jump).
+function TabIcon({
+  focused,
+  children,
+}: {
+  focused: boolean;
+  children: ReactNode;
+}) {
+  const on = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    on.set(
+      withTiming(focused ? 1 : 0, {
+        duration: DURATION.quick + 40,
+        easing: EASE,
+      }),
+    );
+  }, [focused, on]);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + on.get() * 0.08 }],
+  }));
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

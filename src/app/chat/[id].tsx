@@ -65,6 +65,8 @@ import { useTheme } from "../../theme/ThemeProvider";
 // Input: gallery (photo / video) · text · camera (take a photo) · mic (voice message) — all real files.
 
 const EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
+const EASE_OUT = Easing.bezier(0, 0, 0.58, 1);
+const EASE_IN_OUT = Easing.bezier(0.42, 0, 0.58, 1);
 const MAX = 500;
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
@@ -796,7 +798,9 @@ function SystemLine({ text }: { text: string }) {
   );
 }
 
-// Long-press one of THEIR messages → ❤️ (long-press again removes it). The heart pops in softly.
+// Long-press one of THEIR messages → ❤️ (long-press again removes it).
+// The heart fades in and grows from 60 % with a CSS-like ease-out (no overshoot); the time under the
+// bubble moves down with the same ease, so nothing jumps.
 function MessageBubble({
   msg,
   newer,
@@ -816,27 +820,26 @@ function MessageBubble({
   useEffect(() => {
     pop.set(
       msg.heart
-        ? withSequence(
-            withTiming(1.3, { duration: 170, easing: EASE }),
-            withTiming(1, { duration: 150, easing: EASE }),
-          )
-        : withTiming(0, { duration: 160, easing: EASE }),
+        ? withTiming(1, { duration: 260, easing: EASE_OUT })
+        : withTiming(0, { duration: 200, easing: EASE_IN_OUT }),
     );
   }, [msg.heart, pop]);
 
   const heartStyle = useAnimatedStyle(() => ({
-    opacity: Math.min(1, pop.get()),
-    transform: [{ scale: pop.get() }],
+    opacity: pop.get(),
+    transform: [{ scale: 0.6 + pop.get() * 0.4 }],
   }));
+  const timeStyle = useAnimatedStyle(() => ({ marginTop: 3 + pop.get() * 7 }));
+  const roomStyle = useAnimatedStyle(() => ({ height: pop.get() * 8 })); // room for the heart under a bubble without a time
   const bodyStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - press.get() * 0.04 }],
+    transform: [{ scale: 1 - press.get() * 0.03 }],
   }));
 
   const longPress = mine ? undefined : () => onHeart(msg);
   const pressIn = () =>
-    press.set(withTiming(1, { duration: 150, easing: EASE }));
+    press.set(withTiming(1, { duration: 180, easing: EASE_OUT }));
   const pressOut = () =>
-    press.set(withTiming(0, { duration: 180, easing: EASE }));
+    press.set(withTiming(0, { duration: 240, easing: EASE }));
 
   // the time shows under the last bubble of a group (same sender, within 5 minutes)
   const lastOfGroup =
@@ -845,7 +848,7 @@ function MessageBubble({
 
   return (
     <Animated.View
-      entering={FadeIn.duration(220)}
+      entering={FadeIn.duration(220).easing(EASE_OUT)}
       style={[styles.bubbleWrap, mine ? styles.right : styles.left]}
     >
       <Animated.View style={bodyStyle}>
@@ -914,14 +917,18 @@ function MessageBubble({
         </Animated.View>
       </Animated.View>
       {lastOfGroup ? (
-        <AppText
-          variant="caption"
-          color={colors.textSubtle}
-          style={[styles.time, msg.heart && styles.timeWithHeart]}
-        >
-          {chatTime(msg.at)}
-        </AppText>
-      ) : null}
+        <Animated.View style={timeStyle}>
+          <AppText
+            variant="caption"
+            color={colors.textSubtle}
+            style={styles.time}
+          >
+            {chatTime(msg.at)}
+          </AppText>
+        </Animated.View>
+      ) : (
+        <Animated.View style={roomStyle} />
+      )}
     </Animated.View>
   );
 }
@@ -1153,11 +1160,7 @@ const styles = StyleSheet.create({
   heartLeft: {
     left: -6,
   },
-  timeWithHeart: {
-    marginTop: 10,
-  },
   time: {
-    marginTop: 3,
     marginHorizontal: 6,
     marginBottom: 6,
   },

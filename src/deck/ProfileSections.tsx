@@ -13,6 +13,7 @@ import {
 } from "../profiles/extras";
 import { profileKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
+import { formatDistance, useDistanceUnit } from "../settings/units";
 import { useTheme } from "../theme/ThemeProvider";
 import { myInterestSet, similaritiesOf } from "./similarities";
 
@@ -110,6 +111,7 @@ export function ProfileSections({
   onShare,
 }: Props) {
   const colors = useTheme();
+  const unit = useDistanceUnit();
   const similarities = similaritiesOf(me, profile);
   const shared = myInterestSet(me);
   const pronoun = profile.gender === "male" ? "him" : "her";
@@ -120,7 +122,10 @@ export function ProfileSections({
     { icon: "flame-outline", label: SMOKING_LABEL[profile.smoking] ?? "" },
     { icon: "wine-outline", label: DRINKING_LABEL[profile.drinking] ?? "" },
     { icon: "earth-outline", label: profile.origins },
-    { icon: "location-outline", label: `${profileKm(profile)} km away` },
+    {
+      icon: "location-outline",
+      label: `${formatDistance(profileKm(profile), unit)} away`,
+    },
   ];
   const about = aboutAll.filter(
     (a) => a.label && a.label !== "Prefer not to say",

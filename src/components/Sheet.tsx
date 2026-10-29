@@ -2,9 +2,10 @@ import { type ReactNode } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import Animated, { SlideInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DURATION, EASE_OUT } from "../motion/ease";
 import { useTheme } from "../theme/ThemeProvider";
 
-// Simple bottom sheet: dimmed backdrop (tap to close) + a card that slides up.
+// Simple bottom sheet: dimmed backdrop (tap to close) + a card that slides up with a CSS-like ease-out.
 
 type Props = {
   visible: boolean;
@@ -32,7 +33,7 @@ export function Sheet({ visible, onClose, children }: Props) {
           accessibilityLabel="Close"
         />
         <Animated.View
-          entering={SlideInDown.duration(260)}
+          entering={SlideInDown.duration(DURATION.sheet).easing(EASE_OUT)}
           style={[
             styles.sheet,
             { backgroundColor: colors.card, paddingBottom: insets.bottom + 20 },

@@ -12,6 +12,7 @@ import type {
   ProfileIntent,
   ProfileMarital,
 } from "../profiles/types";
+import { formatDistance, type DistanceUnit } from "../settings/units";
 
 // Filters for the Swipe deck + rule 9.4 "never an empty result".
 //
@@ -37,8 +38,8 @@ export function ageLabel(min: number, max: number) {
 export function heightRangeLabel(min: number, max: number) {
   return `${min} – ${max >= HEIGHT_MAX ? `${HEIGHT_MAX}+` : max} cm`;
 }
-export function distanceLabel(km: number | null) {
-  return km === null ? "Anywhere" : `Up to ${km} km`;
+export function distanceLabel(km: number | null, unit: DistanceUnit = "km") {
+  return km === null ? "Anywhere" : `Up to ${formatDistance(km, unit)}`;
 }
 
 // Ethnicity = the region of the profile's origins (the data has no other ethnicity field).

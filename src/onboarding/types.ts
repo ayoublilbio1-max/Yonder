@@ -36,4 +36,6 @@ export type ProfileDraft = {
   photos?: string[]; // local file URIs, first = main photo
   phone?: string; // +212612345678
   phoneVerified?: boolean;
+  // Profile tab (v0.15.0)
+  photoVerified?: boolean; // blue check after the (simulated) selfie check
 };

@@ -9,6 +9,7 @@ import { mainPhotoUri, mediaOf } from "../profiles/data";
 import { isLocked } from "../profiles/extras";
 import { profileKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
+import { formatDistance, useDistanceUnit } from "../settings/units";
 import { useTheme } from "../theme/ThemeProvider";
 
 // The same profile card as on the Swipe page, without swiping (used on a match's profile page).
@@ -22,6 +23,7 @@ type Props = {
 
 export function ProfileCard({ profile, height, onOpen }: Props) {
   const colors = useTheme();
+  const unit = useDistanceUnit();
   const [loaded, setLoaded] = useState(false);
   const locked = isLocked(profile);
   const count = mediaOf(profile).length;
@@ -128,7 +130,7 @@ export function ProfileCard({ profile, height, onOpen }: Props) {
             color={colors.onPhotoMuted}
           />
           <AppText variant="body" color={colors.onPhotoMuted}>
-            {profileKm(profile)} km away
+            {formatDistance(profileKm(profile), unit)} away
           </AppText>
         </View>
       </View>

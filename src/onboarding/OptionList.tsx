@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { AppText } from "../components/AppText";
+import { PressableScale } from "../components/PressableScale";
 import { useTheme } from "../theme/ThemeProvider";
 import type { Option } from "./options";
 
@@ -21,15 +22,14 @@ export function OptionList<T extends string>({
       {options.map((option) => {
         const isSelected = option.value === selected;
         return (
-          <Pressable
+          <PressableScale
             key={option.value}
             onPress={() => onSelect(option.value)}
             accessibilityRole="radio"
             accessibilityState={{ selected: isSelected }}
-            style={({ pressed }) => [
-              styles.row,
-              { opacity: pressed ? 0.6 : 1 },
-            ]}
+            scaleTo={0.99}
+            dimTo={0.6}
+            style={styles.row}
           >
             <AppText
               variant="body"
@@ -41,7 +41,7 @@ export function OptionList<T extends string>({
             {isSelected ? (
               <Ionicons name="checkmark" size={22} color={colors.primary} />
             ) : null}
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
@@ -65,17 +65,17 @@ export function OptionCards<T extends string>({
       {options.map((option) => {
         const isSelected = option.value === selected;
         return (
-          <Pressable
+          <PressableScale
             key={option.value}
             onPress={() => onSelect(option.value)}
             accessibilityRole="radio"
             accessibilityState={{ selected: isSelected }}
-            style={({ pressed }) => [
+            scaleTo={0.98}
+            style={[
               styles.card,
               {
                 borderColor: isSelected ? colors.primary : colors.border,
                 backgroundColor: isSelected ? colors.primarySoft : colors.card,
-                opacity: pressed ? 0.8 : 1,
               },
             ]}
           >
@@ -99,7 +99,7 @@ export function OptionCards<T extends string>({
                 <Ionicons name={option.icon} size={26} color={colors.primary} />
               </View>
             ) : null}
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>

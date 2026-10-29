@@ -29,6 +29,7 @@ import {
 } from "../profiles/extras";
 import { profileKm } from "../profiles/session";
 import type { Profile } from "../profiles/types";
+import { formatDistance, useDistanceUnit } from "../settings/units";
 import { useTheme } from "../theme/ThemeProvider";
 import type { SwipeAction } from "./SwipeProvider";
 
@@ -72,6 +73,7 @@ export function SwipeCard({
   registerFling,
 }: Props) {
   const colors = useTheme();
+  const unit = useDistanceUnit();
   const { width, height } = useWindowDimensions();
   const [loaded, setLoaded] = useState(false);
   const locked = isLocked(profile);
@@ -455,7 +457,7 @@ export function SwipeCard({
               color={colors.onPhotoMuted}
             />
             <AppText variant="body" color={colors.onPhotoMuted}>
-              {profileKm(profile)} km away
+              {formatDistance(profileKm(profile), unit)} away
             </AppText>
           </View>
         </View>

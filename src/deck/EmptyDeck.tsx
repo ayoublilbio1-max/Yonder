@@ -11,6 +11,7 @@ import {
   widerAge,
   widerDistance,
 } from "../filters/filters";
+import { useDistanceUnit } from "../settings/units";
 import { useTheme } from "../theme/ThemeProvider";
 import { useSwipe } from "./SwipeProvider";
 
@@ -18,6 +19,7 @@ import { useSwipe } from "./SwipeProvider";
 export function EmptyDeck() {
   const colors = useTheme();
   const toast = useToast();
+  const unit = useDistanceUnit();
   const { rewindPassed, saved, setFilters } = useSwipe();
   const f = saved.filters;
 
@@ -35,7 +37,7 @@ export function EmptyDeck() {
     if (f.distance === null) return rewind();
     const next = widerDistance(f);
     setFilters(next);
-    toast.show(`Distance: ${distanceLabel(next.distance).toLowerCase()}`);
+    toast.show(`Distance: ${distanceLabel(next.distance, unit).toLowerCase()}`);
     if (__DEV__)
       console.log(
         `[deck] empty → distance ${f.distance} → ${next.distance ?? "any"}`,

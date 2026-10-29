@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -28,7 +29,9 @@ import { sortDeck, type SortKey } from "./sort";
 // Swipe state for one account, saved on the phone:
 // - decisions (like / pass / super like) for matches later;
 // - favorites, blocked / reported profiles (never shown again), compliments sent;
-// - profiles swiped in this app session leave the deck until the app closes (rule 9.1), except with Rewind.
+// - profiles swiped in this app session leave the deck until the app closes (rule 9.1), except with Rewind;
+// - your matches never come back in Swipe or Explore;
+// - your own profile (`me`, the onboarding answers): edited from the Profile tab with updateMe().
 // Mount it with key={userId}.
 
 export type SwipeAction = "like" | "pass" | "superlike";
@@ -65,7 +68,8 @@ const storageKey = (userId: string) => `yonder.deck.${userId}`;
 type SwipeContextValue = {
   ready: boolean;
   show: ProfileGender; // who the tester sees
-  me: ProfileDraft; // the tester's own onboarding answers (for "Your similarities")
+  me: ProfileDraft; // the tester's own profile (onboarding answers, edited in the Profile tab)
+  updateMe: (patch: Partial<ProfileDraft>) => void; // saved on the phone right away
   deck: Profile[];
   likedYou: Profile[]; // people who liked you (simulated, grows as you swipe); like them back = instant match
   swipe: (id: string, action: SwipeAction) => boolean; // true = it's a match
@@ -99,6 +103,7 @@ export function SwipeProvider({
   const { wallet } = useWallet(); // WalletProvider wraps SwipeProvider in (tabs)/_layout
   const [round, setRound] = useState(0); // +1 each time filters are applied → reshuffled deck
   const [lastTopId, setLastTopId] = useState<string | null>(null); // never the same face first after a reshuffle
+  const meEdited = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -142,13 +147,35 @@ export function SwipeProvider({
     );
   }, [saved, ready, userId]);
 
+  // Your profile is saved only after you edit it (never overwritten with an empty draft).
+  useEffect(() => {
+    if (!ready || !meEdited.current) return;
+    AsyncStorage.setItem(profileDraftKey(userId), JSON.stringify(me)).catch(
+      (e) => {
+        if (__DEV__) console.log("[me] save failed", String(e));
+      },
+    );
+  }, [me, ready, userId]);
+
+  const updateMe = useCallback((patch: Partial<ProfileDraft>) => {
+    meEdited.current = true;
+    setMe((prev) => ({ ...prev, ...patch }));
+    if (__DEV__) console.log("[me] edit", JSON.stringify(patch));
+  }, []);
+
   const show: ProfileGender = me.gender === "woman" ? "male" : "female";
 
+  // Matches are hidden too: before v0.15.0 a match from an earlier session came back in the deck.
   const hiddenIds = useMemo(
-    () => new Set([...sessionSwiped.map((s) => s.id), ...saved.blocked]),
-    [sessionSwiped, saved.blocked],
+    () =>
+      new Set([
+        ...sessionSwiped.map((s) => s.id),
+        ...saved.blocked,
+        ...Object.keys(saved.matches),
+      ]),
+    [sessionSwiped, saved.blocked, saved.matches],
   );
-  // Full session order → filters (rule 9.4) → hide swiped / blocked → sort.
+  // Full session order → filters (rule 9.4) → hide swiped / blocked / matched → sort.
   const pool = useMemo(
     () => (ready ? buildDeck(show, new Set(), round) : []),
     [ready, show, round],
@@ -338,6 +365,7 @@ export function SwipeProvider({
       ready,
       show,
       me,
+      updateMe,
       deck,
       likedYou,
       swipe,
@@ -358,6 +386,7 @@ export function SwipeProvider({
       ready,
       show,
       me,
+      updateMe,
       deck,
       likedYou,
       swipe,

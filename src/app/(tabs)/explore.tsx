@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
 import { useState } from "react";
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   useWindowDimensions,
@@ -12,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
 import { AppText } from "../../components/AppText";
+import { PressableScale } from "../../components/PressableScale";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { EXPLORE_ART } from "../../constants/exploreArt";
@@ -67,19 +67,14 @@ export default function ExploreScreen() {
     const cover = coverOf(people);
     const locked = Boolean(c.gold && !wallet.gold);
     return (
-      <Pressable
+      <PressableScale
         key={c.key}
         onPress={() => openCategory(c, people.length)}
         accessibilityRole="button"
         accessibilityLabel={`${c.title}, ${people.length} people`}
-        style={({ pressed }) => [
+        style={[
           styles.card,
-          {
-            width: w,
-            height: h,
-            backgroundColor: colors.surface,
-            transform: [{ scale: pressed ? 0.97 : 1 }],
-          },
+          { width: w, height: h, backgroundColor: colors.surface },
         ]}
       >
         {cover ? (
@@ -134,7 +129,7 @@ export default function ExploreScreen() {
             {people.length}
           </AppText>
         </View>
-      </Pressable>
+      </PressableScale>
     );
   };
 

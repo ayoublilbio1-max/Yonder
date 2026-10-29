@@ -185,6 +185,10 @@ function RootNavigator() {
           />
           <Stack.Screen name="settings" />
           <Stack.Screen name="chat/[id]" />
+          <Stack.Screen
+            name="my-profile"
+            options={{ animation: "slide_from_bottom" }}
+          />
         </Stack>
       </UserProviders>
     </ToastProvider>

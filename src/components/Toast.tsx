@@ -1,16 +1,17 @@
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
 } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { EASE_IN_OUT, EASE_OUT } from "../motion/ease";
 import { useTheme } from "../theme/ThemeProvider";
 import { AppText } from "./AppText";
 
@@ -50,8 +51,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {message !== null ? (
         <Animated.View
           key={key}
-          entering={FadeInDown.duration(200)}
-          exiting={FadeOutDown.duration(200)}
+          entering={FadeInDown.duration(240).easing(EASE_OUT)}
+          exiting={FadeOutDown.duration(220).easing(EASE_IN_OUT)}
           style={[styles.wrap, { bottom: insets.bottom + 96 }]}
         >
           <View style={[styles.toast, { backgroundColor: colors.toastBg }]}>

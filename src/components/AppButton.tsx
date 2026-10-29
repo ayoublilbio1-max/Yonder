@@ -1,14 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { type ComponentProps } from "react";
-import {
-    Pressable,
-    StyleSheet,
-    View,
-    type StyleProp,
-    type ViewStyle,
-} from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useTheme } from "../theme/ThemeProvider";
 import { AppText } from "./AppText";
+import { PressableScale } from "./PressableScale";
 
 type Variant = "primary" | "secondary" | "danger" | "boost";
 
@@ -21,6 +16,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
+// Eases down to 97 % while pressed (CSS-like), back up on release.
 export function AppButton({
   label,
   onPress,
@@ -40,28 +36,31 @@ export function AppButton({
   const { bg, fg } = palette[variant];
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 },
-        variant === "secondary" && {
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-        },
-        style,
-      ]}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      dimTo={0.9}
+      style={style}
     >
-      <View style={styles.row}>
+      <View
+        style={[
+          styles.button,
+          { backgroundColor: bg, opacity: disabled ? 0.5 : 1 },
+          variant === "secondary" && {
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+          },
+        ]}
+      >
         {icon ? <Ionicons name={icon} size={20} color={fg} /> : null}
         <AppText variant="body" weight="semibold" color={fg}>
           {label}
         </AppText>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -70,12 +69,9 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 14,
     paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  row: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
 });

@@ -1,11 +1,18 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { type ComponentProps, type ReactNode } from "react";
+import { useEffect, type ComponentProps, type ReactNode } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { DURATION, EASE_OUT } from "../motion/ease";
 import { useTheme } from "../theme/ThemeProvider";
 import { AppText } from "./AppText";
 
 // Base for every popup in the app (never the native Alert):
 // icon in a soft circle, title, optional message, then the buttons/content.
+// The card fades in and grows from 94 % with a CSS-like ease-out (no bounce).
 
 type Props = {
   visible: boolean;
@@ -45,7 +52,7 @@ export function ThemedModal({
           onPress={onClose}
           accessibilityLabel="Close"
         />
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Card>
           <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
             <Ionicons name={icon} size={30} color={iconColor} />
           </View>
@@ -58,9 +65,34 @@ export function ThemedModal({
             </AppText>
           ) : null}
           {children ? <View style={styles.content}>{children}</View> : null}
-        </View>
+        </Card>
       </View>
     </Modal>
+  );
+}
+
+// Mounted each time the popup opens → plays the "appear" ease once.
+function Card({ children }: { children: ReactNode }) {
+  const colors = useTheme();
+  const shown = useSharedValue(0);
+
+  useEffect(() => {
+    shown.set(
+      withTiming(1, { duration: DURATION.sheet - 60, easing: EASE_OUT }),
+    );
+  }, [shown]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: shown.get(),
+    transform: [{ scale: 0.94 + shown.get() * 0.06 }],
+  }));
+
+  return (
+    <Animated.View
+      style={[styles.card, { backgroundColor: colors.card }, style]}
+    >
+      {children}
+    </Animated.View>
   );
 }
 
