@@ -1,10 +1,11 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { StyleSheet, View } from "react-native";
-import { AppText } from "../components/AppText";
-import { PressableScale } from "../components/PressableScale";
-import { Sheet } from "../components/Sheet";
-import { useTheme } from "../theme/ThemeProvider";
-import { SORT_OPTIONS, type SortKey } from "./sort";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '../components/AppText';
+import { PressableScale } from '../components/PressableScale';
+import { Sheet } from '../components/Sheet';
+import { useTheme } from '../theme/ThemeProvider';
+import { SORT_OPTIONS, type SortKey } from './sort';
+import { tr } from '../i18n/i18n';
 
 // "Sort by" — tap an option to apply it right away (the sheet closes).
 
@@ -21,7 +22,7 @@ export function SortSheet({ visible, value, onClose, onChange }: Props) {
   return (
     <Sheet visible={visible} onClose={onClose}>
       <AppText variant="heading" align="center">
-        Sort by
+        {tr('Sort by')}
       </AppText>
       <View>
         {SORT_OPTIONS.map((o) => {
@@ -39,21 +40,17 @@ export function SortSheet({ visible, value, onClose, onChange }: Props) {
               dimTo={0.6}
               style={styles.row}
             >
-              <Ionicons
-                name={o.icon}
-                size={20}
-                color={selected ? colors.primary : colors.textMuted}
-              />
+              <Ionicons name={o.icon} size={20} color={selected ? colors.primary : colors.textMuted} />
               <AppText
                 variant="body"
-                weight={selected ? "semibold" : "regular"}
+                weight={selected ? 'semibold' : 'regular'}
                 color={selected ? colors.primary : colors.text}
                 style={styles.flex}
               >
-                {o.label}
+                {tr(o.label)}
               </AppText>
               <Ionicons
-                name={selected ? "radio-button-on" : "radio-button-off"}
+                name={selected ? 'radio-button-on' : 'radio-button-off'}
                 size={22}
                 color={selected ? colors.primary : colors.textSubtle}
               />
@@ -67,8 +64,8 @@ export function SortSheet({ visible, value, onClose, onChange }: Props) {
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     minHeight: 48,
   },

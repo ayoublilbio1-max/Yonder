@@ -15,6 +15,7 @@ import {
   useWallet,
 } from '../store/WalletProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { tr } from '../i18n/i18n';
 
 // Boost: 3 hours at the front of the queue. Buy 1 / 5 / 10 through the demo checkout;
 // the first one starts right away, the rest wait in the wallet.
@@ -38,7 +39,7 @@ export function BoostSheet({ visible, onClose }: Props) {
 
   const startOne = () => {
     if (startBoost()) {
-      toast.show(`Boost is on for ${BOOST_HOURS} hours`);
+      toast.show(tr('Boost is on for {BOOST_HOURS} hours', { BOOST_HOURS }));
       onClose();
     }
   };
@@ -53,33 +54,33 @@ export function BoostSheet({ visible, onClose }: Props) {
           {active ? (
             <>
               <AppText variant="title" align="center">
-                Your boost is on
+                {tr('Your boost is on')}
               </AppText>
               <AppText variant="display" align="center" color={colors.boost}>
                 {formatCountdown(left)}
               </AppText>
               <AppText variant="bodySmall" muted align="center">
-                You’re at the front of the queue. More people see your profile right now.
+                {tr('You’re at the front of the queue. More people see your profile right now.')}
               </AppText>
             </>
           ) : (
             <>
               <AppText variant="title" align="center">
-                {'Get seen more.\nBoost your profile'}
+                {tr('Get seen more.\nBoost your profile')}
               </AppText>
               <AppText variant="body" muted align="center">
-                Get seen by 11x more people... more visits... more matches.
+                {tr('Get seen by 11x more people... more visits... more matches.')}
               </AppText>
             </>
           )}
           <AppText variant="body" weight="bold" align="center" color={colors.boost}>
-            Stay front of the queue with cheaper boost bundles
+            {tr('Stay front of the queue with cheaper boost bundles')}
           </AppText>
         </View>
 
         {!active && wallet.boosts > 0 ? (
           <AppButton
-            label={`Use 1 of your ${wallet.boosts} boost${wallet.boosts > 1 ? 's' : ''}`}
+            label={wallet.boosts === 1 ? tr('Use your 1 boost') : tr('Use 1 of your {count} boosts', { count: wallet.boosts })}
             icon="flash"
             variant="boost"
             onPress={startOne}
@@ -110,22 +111,22 @@ export function BoostSheet({ visible, onClose }: Props) {
                 />
                 <View style={styles.flex}>
                   <AppText variant="body" weight="semibold">
-                    {p.qty} boost{p.qty > 1 ? 's' : ''}
+                    {p.qty === 1 ? tr('1 boost') : tr('{count} boosts', { count: p.qty })}
                   </AppText>
                   <AppText variant="caption" muted>
-                    {BOOST_HOURS} hours profile boost
+                    {tr('{BOOST_HOURS} hours profile boost', { BOOST_HOURS })}
                   </AppText>
                 </View>
                 <View style={styles.price}>
                   {p.tag ? (
                     <View style={[styles.tag, { backgroundColor: colors.boost }]}>
                       <AppText variant="caption" weight="bold" color={colors.onBoost}>
-                        {p.tag}
+                        {tr(p.tag)}
                       </AppText>
                     </View>
                   ) : null}
                   <AppText variant="bodySmall" weight="semibold">
-                    {formatUsd(p.each)} each
+                    {tr('{v} each', { v: formatUsd(p.each) })}
                   </AppText>
                 </View>
               </Pressable>
@@ -134,12 +135,12 @@ export function BoostSheet({ visible, onClose }: Props) {
         </View>
 
         <AppButton
-          label="Continue"
+          label={tr('Continue')}
           variant="boost"
           onPress={() =>
             setBuying({
-              title: `${pack.qty} boost${pack.qty > 1 ? 's' : ''}`,
-              detail: `${BOOST_HOURS} hours profile boost · ${formatUsd(pack.each)} each`,
+              title: pack.qty === 1 ? tr('1 boost') : tr('{count} boosts', { count: pack.qty }),
+              detail: `${tr('{BOOST_HOURS} hours profile boost', { BOOST_HOURS })} · ${tr('{v} each', { v: formatUsd(pack.each) })}`,
               total,
             })
           }
@@ -154,7 +155,7 @@ export function BoostSheet({ visible, onClose }: Props) {
         }}
         onPaid={() => {
           addBoosts(pack.qty, !active);
-          if (!active) toast.show(`Boost is on for ${BOOST_HOURS} hours`);
+          if (!active) toast.show(tr('Boost is on for {BOOST_HOURS} hours', { BOOST_HOURS }));
         }}
       />
     </>

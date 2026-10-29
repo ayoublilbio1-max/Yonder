@@ -1,35 +1,25 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import { useRouter, type Href } from "expo-router";
-import { useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SvgXml } from "react-native-svg";
-import { AppText } from "../../components/AppText";
-import { PressableScale } from "../../components/PressableScale";
-import { Skeleton } from "../../components/Skeleton";
-import { useToast } from "../../components/Toast";
-import { EXPLORE_ART } from "../../constants/exploreArt";
-import { GoldSheet } from "../../deck/GoldSheet";
-import { MatchModal } from "../../deck/MatchModal";
-import { useSwipe } from "../../deck/SwipeProvider";
-import {
-  coverOf,
-  HIGHLIGHTS,
-  LOOKING_FOR,
-  PASSIONS,
-  type Category,
-} from "../../explore/categories";
-import { CategoryDeck } from "../../explore/CategoryDeck";
-import { mainPhotoUri } from "../../profiles/data";
-import type { Profile } from "../../profiles/types";
-import { useWallet } from "../../store/WalletProvider";
-import { useTheme } from "../../theme/ThemeProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { useRouter, type Href } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { SvgXml } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppText } from '../../components/AppText';
+import { PressableScale } from '../../components/PressableScale';
+import { Skeleton } from '../../components/Skeleton';
+import { useToast } from '../../components/Toast';
+import { EXPLORE_ART } from '../../constants/exploreArt';
+import { GoldSheet } from '../../deck/GoldSheet';
+import { MatchModal } from '../../deck/MatchModal';
+import { useSwipe } from '../../deck/SwipeProvider';
+import { coverOf, HIGHLIGHTS, LOOKING_FOR, PASSIONS, type Category } from '../../explore/categories';
+import { CategoryDeck } from '../../explore/CategoryDeck';
+import { mainPhotoUri } from '../../profiles/data';
+import type { Profile } from '../../profiles/types';
+import { useWallet } from '../../store/WalletProvider';
+import { useTheme } from '../../theme/ThemeProvider';
+import { tr } from '../../i18n/i18n';
 
 // Explore (like Tinder Explore): categories of people — what they're looking for, highlights,
 // and shared passions. Each opens its own swipe deck. "Active now" and "Nearby" are Gold.
@@ -56,7 +46,7 @@ export default function ExploreScreen() {
       return;
     }
     if (count === 0) {
-      toast.show("No one new here right now. Try another category.");
+      toast.show(tr('No one new here right now. Try another category.'));
       return;
     }
     setCategory(c);
@@ -72,10 +62,7 @@ export default function ExploreScreen() {
         onPress={() => openCategory(c, people.length)}
         accessibilityRole="button"
         accessibilityLabel={`${c.title}, ${people.length} people`}
-        style={[
-          styles.card,
-          { width: w, height: h, backgroundColor: colors.surface },
-        ]}
+        style={[styles.card, { width: w, height: h, backgroundColor: colors.surface }]}
       >
         {cover ? (
           <Image
@@ -88,42 +75,21 @@ export default function ExploreScreen() {
           />
         ) : null}
         {/* theme tint over the blurred photo (light card in light mode, dark in dark mode) */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            styles.tint,
-            { backgroundColor: colors.card },
-          ]}
-        />
+        <View style={[StyleSheet.absoluteFill, styles.tint, { backgroundColor: colors.card }]} />
         <View style={[styles.art, styles.noTouch, { height: h * 0.62 }]}>
-          <SvgXml
-            xml={EXPLORE_ART[c.key] ?? null}
-            width={Math.min(w * 0.7, h * 0.55)}
-            height={Math.min(w * 0.7, h * 0.55)}
-          />
+          <SvgXml xml={EXPLORE_ART[c.key] ?? null} width={Math.min(w * 0.7, h * 0.55)} height={Math.min(w * 0.7, h * 0.55)} />
         </View>
         {locked ? (
-          <View
-            style={[
-              styles.goldTag,
-              styles.noTouch,
-              { backgroundColor: colors.gold },
-            ]}
-          >
+          <View style={[styles.goldTag, styles.noTouch, { backgroundColor: colors.gold }]}>
             <Ionicons name="lock-closed" size={11} color={colors.onPhoto} />
             <AppText variant="caption" weight="bold" color={colors.onPhoto}>
-              GOLD
+              {tr('GOLD')}
             </AppText>
           </View>
         ) : null}
         <View style={[styles.cardText, styles.noTouch]}>
-          <AppText
-            variant="body"
-            weight="bold"
-            numberOfLines={2}
-            style={styles.flex}
-          >
-            {c.title}
+          <AppText variant="body" weight="bold" numberOfLines={2} style={styles.flex}>
+            {tr(c.title)}
           </AppText>
           <AppText variant="body" weight="semibold" muted>
             {people.length}
@@ -134,58 +100,33 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { backgroundColor: colors.bg, paddingTop: insets.top + 12 },
-      ]}
-    >
+    <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 12 }]}>
       <AppText variant="title" style={styles.title}>
-        Explore
+        {tr('Explore')}
       </AppText>
 
       {!ready ? (
         <View style={styles.grid}>
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton
-              key={i}
-              style={{ width: half, height: half * 1.2, borderRadius: 18 }}
-            />
+            <Skeleton key={i} style={{ width: half, height: half * 1.2, borderRadius: 18 }} />
           ))}
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <Section title="Looking for" />
-          <View style={styles.grid}>
-            {LOOKING_FOR.map((c) => card(c, half, Math.round(half * 1.2)))}
-          </View>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Section title={tr('Looking for')} />
+          <View style={styles.grid}>{LOOKING_FOR.map((c) => card(c, half, Math.round(half * 1.2)))}</View>
 
-          <Section title="Highlights" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.row}
-          >
-            {HIGHLIGHTS.map((c) =>
-              card(c, Math.round(width * 0.42), Math.round(width * 0.56)),
-            )}
+          <Section title={tr('Highlights')} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+            {HIGHLIGHTS.map((c) => card(c, Math.round(width * 0.42), Math.round(width * 0.56)))}
           </ScrollView>
 
-          <Section title="Shared passions" />
-          <View style={styles.grid}>
-            {PASSIONS.map((c) => card(c, half, Math.round(half * 0.9)))}
-          </View>
+          <Section title={tr('Shared passions')} />
+          <View style={styles.grid}>{PASSIONS.map((c) => card(c, half, Math.round(half * 0.9)))}</View>
         </ScrollView>
       )}
 
-      <CategoryDeck
-        category={category}
-        onClose={() => setCategory(null)}
-        onMatch={setMatch}
-      />
+      <CategoryDeck category={category} onClose={() => setCategory(null)} onMatch={setMatch} />
 
       <MatchModal
         profile={match}
@@ -218,7 +159,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noTouch: {
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   title: {
     paddingHorizontal: 20,
@@ -234,8 +175,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     paddingHorizontal: 16,
   },
@@ -245,25 +186,25 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 18,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   tint: {
     opacity: 0.72,
   },
   art: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goldTag: {
-    position: "absolute",
+    position: 'absolute',
     top: 10,
     right: 10,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 3,
     borderRadius: 8,
     paddingHorizontal: 6,
@@ -273,12 +214,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardText: {
-    position: "absolute",
+    position: 'absolute',
     left: 14,
     right: 14,
     bottom: 12,
-    flexDirection: "row",
-    alignItems: "flex-end",
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 8,
   },
 });

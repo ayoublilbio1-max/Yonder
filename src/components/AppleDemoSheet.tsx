@@ -1,16 +1,17 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import type { AuthUser } from "../auth/types";
-import { useTheme } from "../theme/ThemeProvider";
-import { AppText } from "./AppText";
-import { Sheet } from "./Sheet";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import type { AuthUser } from '../auth/types';
+import { useTheme } from '../theme/ThemeProvider';
+import { AppText } from './AppText';
+import { Sheet } from './Sheet';
+import { tr } from '../i18n/i18n';
 
 // Simulated "Sign in with Apple": name + Share / Hide my email, then Continue.
 
-const DEMO_NAME = "Alex Morgan";
-const SHARED_EMAIL = "alex.morgan@icloud.com";
-const HIDDEN_EMAIL = "k7mq2x9p4d@privaterelay.appleid.com";
+const DEMO_NAME = 'Alex Morgan';
+const SHARED_EMAIL = 'alex.morgan@icloud.com';
+const HIDDEN_EMAIL = 'k7mq2x9p4d@privaterelay.appleid.com';
 
 type Props = {
   visible: boolean;
@@ -23,21 +24,17 @@ export function AppleDemoSheet({ visible, onClose, onContinue }: Props) {
   const [hideEmail, setHideEmail] = useState(false);
 
   const options = [
-    { hide: false, title: "Share My Email", detail: SHARED_EMAIL },
-    {
-      hide: true,
-      title: "Hide My Email",
-      detail: `Forward to: ${HIDDEN_EMAIL}`,
-    },
+    { hide: false, title: 'Share My Email', detail: SHARED_EMAIL },
+    { hide: true, title: 'Hide My Email', detail: tr('Forward to: {email}', { email: HIDDEN_EMAIL }) },
   ];
 
   const continueWithApple = () => {
     const user: AuthUser = {
-      id: "apple_demo_alex",
+      id: 'apple_demo_alex',
       name: DEMO_NAME,
       email: hideEmail ? HIDDEN_EMAIL : SHARED_EMAIL,
       photo: null,
-      method: "apple-demo",
+      method: 'apple-demo',
     };
     if (__DEV__) console.log(`[apple-demo] continue · hideEmail=${hideEmail}`);
     onContinue(user);
@@ -48,18 +45,17 @@ export function AppleDemoSheet({ visible, onClose, onContinue }: Props) {
       <View style={styles.header}>
         <Ionicons name="logo-apple" size={30} color={colors.text} />
         <AppText variant="heading" align="center">
-          Sign in with Apple
+          {tr('Sign in with Apple')}
         </AppText>
         <AppText variant="bodySmall" muted align="center">
-          Create an account for Yonder using your Apple ID. This is a demo — no
-          real Apple ID is used.
+          {tr('Create an account for Yonder using your Apple ID. This is a demo — no real Apple ID is used.')}
         </AppText>
       </View>
 
       <View style={[styles.group, { backgroundColor: colors.surface }]}>
         <View style={styles.row}>
           <AppText variant="caption" muted>
-            NAME
+            {tr('NAME')}
           </AppText>
           <AppText variant="body" weight="medium">
             {DEMO_NAME}
@@ -78,22 +74,19 @@ export function AppleDemoSheet({ visible, onClose, onContinue }: Props) {
               accessibilityState={{ selected }}
               style={[
                 styles.optionRow,
-                i > 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: colors.border,
-                },
+                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
               ]}
             >
               <View style={styles.flex}>
                 <AppText variant="body" weight="medium">
-                  {option.title}
+                  {tr(option.title)}
                 </AppText>
                 <AppText variant="caption" muted>
-                  {option.detail}
+                  {tr(option.detail)}
                 </AppText>
               </View>
               <Ionicons
-                name={selected ? "checkmark-circle" : "ellipse-outline"}
+                name={selected ? 'checkmark-circle' : 'ellipse-outline'}
                 size={24}
                 color={selected ? colors.primary : colors.textSubtle}
               />
@@ -105,13 +98,10 @@ export function AppleDemoSheet({ visible, onClose, onContinue }: Props) {
       <Pressable
         onPress={continueWithApple}
         accessibilityRole="button"
-        style={({ pressed }) => [
-          styles.button,
-          { backgroundColor: colors.text, opacity: pressed ? 0.85 : 1 },
-        ]}
+        style={({ pressed }) => [styles.button, { backgroundColor: colors.text, opacity: pressed ? 0.85 : 1 }]}
       >
         <AppText variant="body" weight="semibold" color={colors.bg}>
-          Continue
+          {tr('Continue')}
         </AppText>
       </Pressable>
     </Sheet>
@@ -120,12 +110,12 @@ export function AppleDemoSheet({ visible, onClose, onContinue }: Props) {
 
 const styles = StyleSheet.create({
   header: {
-    alignItems: "center",
+    alignItems: 'center',
     gap: 4,
   },
   group: {
     borderRadius: 14,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   row: {
     paddingHorizontal: 16,
@@ -133,8 +123,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   optionRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -142,8 +132,8 @@ const styles = StyleSheet.create({
   button: {
     minHeight: 52,
     borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flex: {
     flex: 1,

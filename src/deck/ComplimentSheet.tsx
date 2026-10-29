@@ -9,6 +9,7 @@ import { fonts } from '../constants/fonts';
 import type { Profile } from '../profiles/types';
 import { COMPLIMENT_PACKS, formatUsd, useWallet } from '../store/WalletProvider';
 import { useTheme } from '../theme/ThemeProvider';
+import { tr } from '../i18n/i18n';
 
 // Send a compliment = your like + a short message they see first.
 // 1 free compliment per day, then demo packs bought through the simulated checkout.
@@ -28,7 +29,7 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
   const [buying, setBuying] = useState<CheckoutItem | null>(null);
   const [packQty, setPackQty] = useState(0);
 
-  const pronoun = profile?.gender === 'male' ? 'his' : 'her';
+  const male = profile?.gender === 'male';
   const canSend = text.trim().length >= 2 && complimentsLeft > 0;
 
   const close = () => {
@@ -51,10 +52,12 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
             <Ionicons name="chatbubble-ellipses" size={26} color={colors.primary} />
           </View>
           <AppText variant="heading" align="center">
-            Send a compliment to {profile?.name ?? ''}
+            {tr('Send a compliment to {v}', { v: profile?.name ?? '' })}
           </AppText>
           <AppText variant="bodySmall" muted align="center">
-            Your like and message go to the top of {pronoun} likes, so {pronoun === 'his' ? 'he' : 'she'} sees you first.
+            {male
+              ? tr('Your like and message go to the top of his likes, so he sees you first.')
+              : tr('Your like and message go to the top of her likes, so she sees you first.')}
           </AppText>
         </View>
 
@@ -62,7 +65,7 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
           <TextInput
             value={text}
             onChangeText={(t) => setText(t.slice(0, MAX))}
-            placeholder={`Say something nice about ${pronoun} profile…`}
+            placeholder={male ? tr('Say something nice about his profile…') : tr('Say something nice about her profile…')}
             placeholderTextColor={colors.textSubtle}
             selectionColor={colors.primary}
             cursorColor={colors.primary}
@@ -74,10 +77,12 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
         <View style={styles.meta}>
           <AppText variant="caption" muted style={styles.flex}>
             {freeComplimentLeft
-              ? '1 free compliment today'
-              : wallet.compliments > 0
-                ? `${wallet.compliments} compliment${wallet.compliments > 1 ? 's' : ''} left`
-                : 'No compliments left'}
+              ? tr('1 free compliment today')
+              : wallet.compliments === 1
+                ? tr('1 compliment left')
+                : wallet.compliments > 1
+                  ? tr('{count} compliments left', { count: wallet.compliments })
+                  : tr('No compliments left')}
           </AppText>
           <AppText variant="caption" muted>
             {text.length}/{MAX}
@@ -85,11 +90,11 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
         </View>
 
         {complimentsLeft > 0 ? (
-          <AppButton label="Send compliment" icon="send" onPress={send} disabled={!canSend} />
+          <AppButton label={tr('Send compliment')} icon="send" onPress={send} disabled={!canSend} />
         ) : (
           <>
             <AppText variant="label" muted>
-              GET MORE COMPLIMENTS
+              {tr('GET MORE COMPLIMENTS')}
             </AppText>
             <View style={styles.packs}>
               {COMPLIMENT_PACKS.map((p) => (
@@ -98,8 +103,8 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
                   onPress={() => {
                     setPackQty(p.qty);
                     setBuying({
-                      title: `${p.qty} compliments`,
-                      detail: `${formatUsd(p.price / p.qty)} each`,
+                      title: tr('{count} compliments', { count: p.qty }),
+                      detail: tr('{v} each', { v: formatUsd(p.price / p.qty) }),
                       total: p.price,
                     });
                   }}
@@ -109,13 +114,13 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
                   {p.tag ? (
                     <View style={[styles.tag, { backgroundColor: colors.primary }]}>
                       <AppText variant="caption" weight="bold" color={colors.onPrimary}>
-                        {p.tag}
+                        {tr(p.tag)}
                       </AppText>
                     </View>
                   ) : null}
                   <AppText variant="title">{p.qty}</AppText>
                   <AppText variant="caption" muted>
-                    compliments
+                    {tr('compliments')}
                   </AppText>
                   <AppText variant="bodySmall" weight="semibold">
                     {formatUsd(p.price)}
@@ -124,7 +129,7 @@ export function ComplimentSheet({ profile, onClose, onSent }: Props) {
               ))}
             </View>
             <AppText variant="caption" muted align="center">
-              You get 1 free compliment again tomorrow.
+              {tr('You get 1 free compliment again tomorrow.')}
             </AppText>
           </>
         )}

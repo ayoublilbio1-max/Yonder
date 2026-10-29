@@ -1,8 +1,9 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { type ComponentProps } from "react";
-import { useTheme } from "../theme/ThemeProvider";
-import { AppButton } from "./AppButton";
-import { ThemedModal } from "./ThemedModal";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { type ComponentProps } from 'react';
+import { useTheme } from '../theme/ThemeProvider';
+import { AppButton } from './AppButton';
+import { ThemedModal } from './ThemedModal';
+import { tr } from '../i18n/i18n';
 
 // Themed confirmation (never the native Alert): icon, title, message, Cancel + red Delete.
 
@@ -12,7 +13,7 @@ type Props = {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  icon?: ComponentProps<typeof Ionicons>["name"];
+  icon?: ComponentProps<typeof Ionicons>['name'];
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -21,9 +22,9 @@ export function ConfirmModal({
   visible,
   title,
   message,
-  confirmLabel = "Delete",
-  cancelLabel = "Cancel",
-  icon = "trash-outline",
+  confirmLabel = tr('Delete'),
+  cancelLabel = tr('Cancel'),
+  icon = 'trash-outline',
   onConfirm,
   onCancel,
 }: Props) {

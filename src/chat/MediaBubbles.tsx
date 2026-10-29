@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   AudioModule,
   RecordingPresets,
@@ -7,12 +7,12 @@ import {
   useAudioPlayerStatus,
   useAudioRecorder,
   useAudioRecorderState,
-} from "expo-audio";
-import { File } from "expo-file-system";
-import { Image } from "expo-image";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+} from 'expo-audio';
+import { File } from 'expo-file-system';
+import { Image } from 'expo-image';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -21,12 +21,13 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-} from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText } from "../components/AppText";
-import { useTheme } from "../theme/ThemeProvider";
-import type { ChatMedia } from "./ChatProvider";
-import { formatDuration, keepFile, timerLabel } from "./media";
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppText } from '../components/AppText';
+import { useTheme } from '../theme/ThemeProvider';
+import type { ChatMedia } from './ChatProvider';
+import { formatDuration, keepFile, timerLabel } from './media';
+import { tr } from '../i18n/i18n';
 
 // Photo / video / voice bubbles in a chat, the full-screen media viewer and the voice recorder.
 
@@ -34,43 +35,16 @@ const EASE = Easing.bezier(0.25, 0.1, 0.25, 1);
 const BUBBLE_W = 230;
 
 function sizeOf(media: ChatMedia) {
-  const ratio =
-    media.width && media.height ? media.height / media.width : 4 / 3;
-  return {
-    width: BUBBLE_W,
-    height: Math.round(BUBBLE_W * Math.min(1.5, Math.max(0.6, ratio))),
-  };
+  const ratio = media.width && media.height ? media.height / media.width : 4 / 3;
+  return { width: BUBBLE_W, height: Math.round(BUBBLE_W * Math.min(1.5, Math.max(0.6, ratio))) };
 }
 
 // ---------- photo ----------
-export function PhotoBubble({
-  media,
-  onOpen,
-  onLongPress,
-}: {
-  media: ChatMedia;
-  onOpen: () => void;
-  onLongPress?: () => void;
-}) {
+export function PhotoBubble({ media, onOpen, onLongPress }: { media: ChatMedia; onOpen: () => void; onLongPress?: () => void }) {
   const colors = useTheme();
   return (
-    <Pressable
-      onPress={onOpen}
-      onLongPress={onLongPress}
-      delayLongPress={300}
-      accessibilityRole="imagebutton"
-      accessibilityLabel="Open photo"
-    >
-      <Image
-        source={{ uri: media.uri }}
-        style={[
-          styles.media,
-          sizeOf(media),
-          { backgroundColor: colors.surface },
-        ]}
-        contentFit="cover"
-        transition={150}
-      />
+    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={300} accessibilityRole="imagebutton" accessibilityLabel="Open photo">
+      <Image source={{ uri: media.uri }} style={[styles.media, sizeOf(media), { backgroundColor: colors.surface }]} contentFit="cover" transition={150} />
     </Pressable>
   );
 }
@@ -89,9 +63,9 @@ export function TimedPhotoBubble({
 }) {
   const colors = useTheme();
   const opened = Boolean(media.opened);
-  const label = media.timer ? timerLabel(media.timer) : "Photo";
-  const title = opened ? "Opened" : mine ? label : "Tap to view";
-  const sub = opened ? label : mine ? "Delivered" : label;
+  const label = media.timer ? timerLabel(media.timer) : tr('Photo');
+  const title = opened ? tr('Opened') : mine ? label : tr('Tap to view');
+  const sub = opened ? label : mine ? tr('Delivered') : label;
   return (
     <Pressable
       onPress={onOpen}
@@ -108,49 +82,21 @@ export function TimedPhotoBubble({
         },
       ]}
     >
-      <View
-        style={[
-          styles.timedIcon,
-          {
-            borderColor: mine ? colors.onPrimary : colors.primary,
-            opacity: opened ? 0.5 : 1,
-          },
-        ]}
-      >
+      <View style={[styles.timedIcon, { borderColor: mine ? colors.onPrimary : colors.primary, opacity: opened ? 0.5 : 1 }]}>
         {!mine && !opened ? (
-          <Image
-            source={{ uri: media.uri }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            blurRadius={40}
-          />
+          <Image source={{ uri: media.uri }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={40} />
         ) : null}
         <Ionicons
-          name={
-            opened
-              ? "checkmark-done"
-              : media.timer === "once"
-                ? "eye-outline"
-                : "timer-outline"
-          }
+          name={opened ? 'checkmark-done' : media.timer === 'once' ? 'eye-outline' : 'timer-outline'}
           size={20}
-          color={
-            mine ? colors.onPrimary : !opened ? colors.onPhoto : colors.primary
-          }
+          color={mine ? colors.onPrimary : !opened ? colors.onPhoto : colors.primary}
         />
       </View>
       <View>
-        <AppText
-          variant="body"
-          weight="semibold"
-          color={mine ? colors.onPrimary : colors.text}
-        >
+        <AppText variant="body" weight="semibold" color={mine ? colors.onPrimary : colors.text}>
           {title}
         </AppText>
-        <AppText
-          variant="caption"
-          color={mine ? colors.onPrimary : colors.textMuted}
-        >
+        <AppText variant="caption" color={mine ? colors.onPrimary : colors.textMuted}>
           {sub}
         </AppText>
       </View>
@@ -159,55 +105,22 @@ export function TimedPhotoBubble({
 }
 
 // ---------- video (first frame + play icon; tap → full screen) ----------
-export function VideoBubble({
-  media,
-  onOpen,
-  onLongPress,
-}: {
-  media: ChatMedia;
-  onOpen: () => void;
-  onLongPress?: () => void;
-}) {
+export function VideoBubble({ media, onOpen, onLongPress }: { media: ChatMedia; onOpen: () => void; onLongPress?: () => void }) {
   const colors = useTheme();
   const player = useVideoPlayer(media.uri, (p) => {
     p.muted = true;
   });
   return (
-    <Pressable
-      onPress={onOpen}
-      onLongPress={onLongPress}
-      delayLongPress={300}
-      accessibilityRole="button"
-      accessibilityLabel="Play video"
-    >
-      <View
-        style={[
-          styles.media,
-          sizeOf(media),
-          { backgroundColor: colors.viewerBg },
-        ]}
-      >
-        <VideoView
-          player={player}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          nativeControls={false}
-        />
+    <Pressable onPress={onOpen} onLongPress={onLongPress} delayLongPress={300} accessibilityRole="button" accessibilityLabel="Play video">
+      <View style={[styles.media, sizeOf(media), { backgroundColor: colors.viewerBg }]}>
+        <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
         <View style={[StyleSheet.absoluteFill, styles.center, styles.noTouch]}>
-          <View
-            style={[styles.play, { backgroundColor: colors.photoScrimTop }]}
-          >
+          <View style={[styles.play, { backgroundColor: colors.photoScrimTop }]}>
             <Ionicons name="play" size={26} color={colors.onPhoto} />
           </View>
         </View>
         {media.durationMs ? (
-          <View
-            style={[
-              styles.duration,
-              styles.noTouch,
-              { backgroundColor: colors.photoScrimTop },
-            ]}
-          >
+          <View style={[styles.duration, styles.noTouch, { backgroundColor: colors.photoScrimTop }]}>
             <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
               {formatDuration(media.durationMs)}
             </AppText>
@@ -219,30 +132,20 @@ export function VideoBubble({
 }
 
 // ---------- voice ----------
-export function AudioBubble({
-  media,
-  mine,
-}: {
-  media: ChatMedia;
-  mine: boolean;
-}) {
+export function AudioBubble({ media, mine }: { media: ChatMedia; mine: boolean }) {
   const colors = useTheme();
   const player = useAudioPlayer(media.uri);
   const status = useAudioPlayerStatus(player);
   const fg = mine ? colors.onPrimary : colors.text;
   const track = mine ? colors.photoScrimMiddle : colors.border;
 
-  const totalMs = status.duration
-    ? status.duration * 1000
-    : (media.durationMs ?? 0);
-  const progress = status.duration
-    ? Math.min(1, status.currentTime / status.duration)
-    : 0;
+  const totalMs = status.duration ? status.duration * 1000 : media.durationMs ?? 0;
+  const progress = status.duration ? Math.min(1, status.currentTime / status.duration) : 0;
 
   useEffect(() => {
     if (status.didJustFinish) {
       player.seekTo(0).catch(() => {});
-      if (__DEV__) console.log("[media] voice finished");
+      if (__DEV__) console.log('[media] voice finished');
     }
   }, [status.didJustFinish, player]);
 
@@ -252,84 +155,38 @@ export function AudioBubble({
   };
 
   return (
-    <View
-      style={[
-        styles.audio,
-        { backgroundColor: mine ? colors.primary : colors.surface },
-      ]}
-    >
-      <Pressable
-        onPress={toggle}
-        accessibilityRole="button"
-        accessibilityLabel={status.playing ? "Pause" : "Play"}
-        hitSlop={8}
-      >
-        <Ionicons
-          name={status.playing ? "pause" : "play"}
-          size={26}
-          color={fg}
-        />
+    <View style={[styles.audio, { backgroundColor: mine ? colors.primary : colors.surface }]}>
+      <Pressable onPress={toggle} accessibilityRole="button" accessibilityLabel={status.playing ? 'Pause' : 'Play'} hitSlop={8}>
+        <Ionicons name={status.playing ? 'pause' : 'play'} size={26} color={fg} />
       </Pressable>
       <View style={[styles.audioTrack, { backgroundColor: track }]}>
-        <View
-          style={[
-            styles.audioFill,
-            {
-              backgroundColor: fg,
-              width: `${Math.round(progress * 100)}%` as const,
-            },
-          ]}
-        />
+        <View style={[styles.audioFill, { backgroundColor: fg, width: `${Math.round(progress * 100)}%` as const }]} />
       </View>
       <AppText variant="caption" weight="semibold" color={fg}>
-        {formatDuration(
-          status.playing || status.currentTime > 0
-            ? status.currentTime * 1000
-            : totalMs,
-        )}
+        {formatDuration(status.playing || status.currentTime > 0 ? status.currentTime * 1000 : totalMs)}
       </AppText>
     </View>
   );
 }
 
 // ---------- full screen (a 5 s / 10 s photo shows a shrinking bar and closes by itself) ----------
-export function FullMedia({
-  media,
-  onClose,
-}: {
-  media: ChatMedia | null;
-  onClose: () => void;
-}) {
+export function FullMedia({ media, onClose }: { media: ChatMedia | null; onClose: () => void }) {
   return (
-    <Modal
-      visible={media !== null}
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent
-      navigationBarTranslucent
-    >
+    <Modal visible={media !== null} animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       {media ? <FullMediaContent media={media} onClose={onClose} /> : null}
     </Modal>
   );
 }
 
-function FullMediaContent({
-  media,
-  onClose,
-}: {
-  media: ChatMedia;
-  onClose: () => void;
-}) {
+function FullMediaContent({ media, onClose }: { media: ChatMedia; onClose: () => void }) {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
-  const seconds = typeof media.timer === "number" ? media.timer : 0;
+  const seconds = typeof media.timer === 'number' ? media.timer : 0;
   const left = useSharedValue(1);
 
   useEffect(() => {
     if (!seconds) return;
-    left.set(
-      withTiming(0, { duration: seconds * 1000, easing: Easing.linear }),
-    );
+    left.set(withTiming(0, { duration: seconds * 1000, easing: Easing.linear }));
     const t = setTimeout(onClose, seconds * 1000);
     if (__DEV__) console.log(`[media] timed photo open · ${seconds}s`);
     return () => clearTimeout(t);
@@ -337,62 +194,34 @@ function FullMediaContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const barStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleX: left.get() }],
-  }));
+  const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: left.get() }] }));
 
   return (
     <View style={[styles.full, { backgroundColor: colors.viewerBg }]}>
       {seconds ? (
-        <View
-          style={[
-            styles.timerTrack,
-            { top: insets.top + 4, backgroundColor: colors.photoScrimTop },
-          ]}
-        >
-          <Animated.View
-            style={[
-              styles.timerBar,
-              { backgroundColor: colors.onPhoto },
-              barStyle,
-            ]}
-          />
+        <View style={[styles.timerTrack, { top: insets.top + 4, backgroundColor: colors.photoScrimTop }]}>
+          <Animated.View style={[styles.timerBar, { backgroundColor: colors.onPhoto }, barStyle]} />
         </View>
       ) : null}
-      {media.timer === "once" ? (
-        <View
-          style={[
-            styles.onceTag,
-            {
-              bottom: insets.bottom + 24,
-              backgroundColor: colors.photoScrimTop,
-            },
-          ]}
-        >
+      {media.timer === 'once' ? (
+        <View style={[styles.onceTag, { bottom: insets.bottom + 24, backgroundColor: colors.photoScrimTop }]}>
           <Ionicons name="eye-outline" size={16} color={colors.onPhoto} />
           <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
-            View once — it disappears when you close it
+            {tr('View once — it disappears when you close it')}
           </AppText>
         </View>
       ) : null}
-      {media.kind === "video" ? (
+      {media.kind === 'video' ? (
         <FullVideo uri={media.uri} />
       ) : (
-        <Image
-          source={{ uri: media.uri }}
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-        />
+        <Image source={{ uri: media.uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
       )}
       <Pressable
         onPress={onClose}
         accessibilityRole="button"
         accessibilityLabel="Close"
         hitSlop={10}
-        style={[
-          styles.close,
-          { top: insets.top + 10, backgroundColor: colors.photoScrimTop },
-        ]}
+        style={[styles.close, { top: insets.top + 10, backgroundColor: colors.photoScrimTop }]}
       >
         <Ionicons name="close" size={24} color={colors.onPhoto} />
       </Pressable>
@@ -404,14 +233,7 @@ function FullVideo({ uri }: { uri: string }) {
   const player = useVideoPlayer(uri, (p) => {
     p.play();
   });
-  return (
-    <VideoView
-      player={player}
-      style={StyleSheet.absoluteFill}
-      contentFit="contain"
-      nativeControls
-    />
-  );
+  return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls />;
 }
 
 // ---------- recorder (replaces the input while recording) ----------
@@ -429,37 +251,25 @@ export function VoiceRecorder({ onDone, onError }: RecorderProps) {
 
   useEffect(() => {
     let cancelled = false;
-    blink.set(
-      withRepeat(
-        withSequence(
-          withTiming(0.25, { duration: 600, easing: EASE }),
-          withTiming(1, { duration: 600, easing: EASE }),
-        ),
-        -1,
-      ),
-    );
+    blink.set(withRepeat(withSequence(withTiming(0.25, { duration: 600, easing: EASE }), withTiming(1, { duration: 600, easing: EASE })), -1));
     (async () => {
       try {
         const perm = await AudioModule.requestRecordingPermissionsAsync();
-        if (__DEV__) console.log("[media] microphone permission", perm.status);
+        if (__DEV__) console.log('[media] microphone permission', perm.status);
         if (!perm.granted) {
-          onError("Allow the microphone to send voice messages");
+          onError(tr('Allow the microphone to send voice messages'));
           onDone(null);
           return;
         }
-        await setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-          interruptionMode: "mixWithOthers",
-        });
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, interruptionMode: 'mixWithOthers' });
         await recorder.prepareToRecordAsync();
         if (cancelled) return;
         recorder.record();
         setStarting(false);
-        if (__DEV__) console.log("[media] recording…");
+        if (__DEV__) console.log('[media] recording…');
       } catch (e) {
-        if (__DEV__) console.log("[media] record failed", String(e));
-        onError("Couldn’t start recording");
+        if (__DEV__) console.log('[media] record failed', String(e));
+        onError(tr('Couldn’t start recording'));
         onDone(null);
       }
     })();
@@ -474,11 +284,7 @@ export function VoiceRecorder({ onDone, onError }: RecorderProps) {
     const duration = state.durationMillis;
     try {
       await recorder.stop();
-      await setAudioModeAsync({
-        allowsRecording: false,
-        playsInSilentMode: true,
-        interruptionMode: "mixWithOthers",
-      });
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: 'mixWithOthers' });
       const uri = recorder.uri;
       if (!keep || !uri || duration < 800) {
         if (uri) {
@@ -488,21 +294,17 @@ export function VoiceRecorder({ onDone, onError }: RecorderProps) {
             // already gone
           }
         }
-        if (__DEV__)
-          console.log(
-            `[media] voice ${keep ? "too short" : "cancelled"} (${duration}ms)`,
-          );
-        if (keep) onError("Hold on a bit longer to record a voice message");
+        if (__DEV__) console.log(`[media] voice ${keep ? 'too short' : 'cancelled'} (${duration}ms)`);
+        if (keep) onError(tr('Hold on a bit longer to record a voice message'));
         onDone(null);
         return;
       }
-      const saved = keepFile(uri, "voice", uri.split(".").pop() || "m4a");
-      if (__DEV__)
-        console.log(`[media] voice ${Math.round(duration / 1000)}s saved`);
-      onDone({ kind: "audio", uri: saved, durationMs: duration });
+      const saved = keepFile(uri, 'voice', uri.split('.').pop() || 'm4a');
+      if (__DEV__) console.log(`[media] voice ${Math.round(duration / 1000)}s saved`);
+      onDone({ kind: 'audio', uri: saved, durationMs: duration });
     } catch (e) {
-      if (__DEV__) console.log("[media] stop failed", String(e));
-      onError("Couldn’t save the voice message");
+      if (__DEV__) console.log('[media] stop failed', String(e));
+      onError(tr('Couldn’t save the voice message'));
       onDone(null);
     }
   };
@@ -511,29 +313,16 @@ export function VoiceRecorder({ onDone, onError }: RecorderProps) {
 
   return (
     <Animated.View entering={FadeIn.duration(180)} style={styles.recorder}>
-      <Pressable
-        onPress={() => finish(false)}
-        accessibilityRole="button"
-        accessibilityLabel="Cancel"
-        hitSlop={8}
-        style={styles.recBtn}
-      >
+      <Pressable onPress={() => finish(false)} accessibilityRole="button" accessibilityLabel="Cancel" hitSlop={8} style={styles.recBtn}>
         <Ionicons name="trash-outline" size={24} color={colors.danger} />
       </Pressable>
-      <View
-        style={[
-          styles.recBox,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Animated.View
-          style={[styles.recDot, { backgroundColor: colors.danger }, dotStyle]}
-        />
+      <View style={[styles.recBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Animated.View style={[styles.recDot, { backgroundColor: colors.danger }, dotStyle]} />
         <AppText variant="body" weight="semibold">
-          {starting ? "Starting…" : formatDuration(state.durationMillis)}
+          {starting ? tr('Starting…') : formatDuration(state.durationMillis)}
         </AppText>
         <AppText variant="caption" muted style={styles.flex}>
-          {starting ? "" : "Recording"}
+          {starting ? '' : tr('Recording')}
         </AppText>
       </View>
       <Pressable
@@ -541,10 +330,7 @@ export function VoiceRecorder({ onDone, onError }: RecorderProps) {
         disabled={starting}
         accessibilityRole="button"
         accessibilityLabel="Send voice message"
-        style={[
-          styles.recSend,
-          { backgroundColor: colors.primary, opacity: starting ? 0.5 : 1 },
-        ]}
+        style={[styles.recSend, { backgroundColor: colors.primary, opacity: starting ? 0.5 : 1 }]}
       >
         <Ionicons name="send" size={20} color={colors.onPrimary} />
       </Pressable>
@@ -557,25 +343,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   noTouch: {
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   center: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   media: {
     borderRadius: 18,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   play: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   duration: {
-    position: "absolute",
+    position: 'absolute',
     right: 8,
     bottom: 8,
     borderRadius: 8,
@@ -583,8 +369,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   audio: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -595,7 +381,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 4,
     borderRadius: 2,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   audioFill: {
     height: 4,
@@ -605,17 +391,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   close: {
-    position: "absolute",
+    position: 'absolute',
     left: 16,
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timed: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     borderWidth: 1,
     borderRadius: 20,
@@ -628,29 +414,29 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 2,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timerTrack: {
-    position: "absolute",
+    position: 'absolute',
     left: 16,
     right: 16,
     height: 3,
     borderRadius: 2,
-    overflow: "hidden",
+    overflow: 'hidden',
     zIndex: 2,
   },
   timerBar: {
     height: 3,
-    width: "100%",
-    transformOrigin: "left",
+    width: '100%',
+    transformOrigin: 'left',
   },
   onceTag: {
-    position: "absolute",
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     borderRadius: 14,
     paddingHorizontal: 12,
@@ -659,20 +445,20 @@ const styles = StyleSheet.create({
   },
   recorder: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   recBtn: {
     width: 40,
     height: 44,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   recBox: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     borderWidth: 1,
     borderRadius: 22,
@@ -688,7 +474,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -21,6 +21,7 @@ import { DURATION, EASE, EASE_OUT } from '../motion/ease';
 import { MAX_PHOTOS, MIN_PHOTOS } from '../onboarding/options';
 import { deletePhotoFile, pickPhoto } from '../onboarding/photos';
 import { useTheme } from '../theme/ThemeProvider';
+import { tr } from '../i18n/i18n';
 
 // Your profile, Muzz-style: "Preview" (how others see you) | "Edit" (photos, verification, every answer).
 // Open with /my-profile?tab=edit to land on Edit.
@@ -45,7 +46,7 @@ export default function MyProfileScreen() {
 
   const openField = (k: FieldKey) => {
     if (FIELDS[k].locked) {
-      toast.show(`Your ${FIELDS[k].title.toLowerCase()} can’t be changed after sign-up.`);
+      toast.show(k === 'birthday' ? tr('Your date of birth can’t be changed after sign-up.') : tr('Your gender can’t be changed after sign-up.'));
       return;
     }
     if (__DEV__) console.log(`[me] edit ${k}`);
@@ -67,7 +68,7 @@ export default function MyProfileScreen() {
         </PressableScale>
         <View style={styles.headerTitle}>
           <AppText variant="heading" numberOfLines={1} style={styles.shrink}>
-            {me.firstName ?? 'My profile'}
+            {me.firstName ?? tr('My profile')}
           </AppText>
           {me.photoVerified ? <Ionicons name="checkmark-circle" size={20} color={colors.verified} /> : null}
         </View>
@@ -82,7 +83,7 @@ export default function MyProfileScreen() {
             <MyPreview me={me} />
           </ScrollView>
           <View style={[styles.boostBar, { paddingBottom: insets.bottom + 14, backgroundColor: colors.bg }]}>
-            <AppButton label="Boost my profile" icon="flash" variant="boost" onPress={() => setBoostOpen(true)} />
+            <AppButton label={tr('Boost my profile')} icon="flash" variant="boost" onPress={() => setBoostOpen(true)} />
           </View>
         </Animated.View>
       ) : (
@@ -91,11 +92,11 @@ export default function MyProfileScreen() {
             <EditPhotos />
 
             <AppText variant="title" style={styles.sectionTitle}>
-              Photo verification
+              {tr('Photo verification')}
             </AppText>
             <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <PressableScale
-                onPress={() => (me.photoVerified ? toast.show('Your photo is already verified.') : setVerifyOpen(true))}
+                onPress={() => (me.photoVerified ? toast.show(tr('Your photo is already verified.')) : setVerifyOpen(true))}
                 accessibilityRole="button"
                 scaleTo={0.99}
                 dimTo={0.7}
@@ -106,10 +107,10 @@ export default function MyProfileScreen() {
                 </View>
                 <View style={styles.flex}>
                   <AppText variant="body" weight="semibold">
-                    Blue check
+                    {tr('Blue check')}
                   </AppText>
                   <AppText variant="bodySmall" color={me.photoVerified ? colors.textMuted : colors.primary}>
-                    {me.photoVerified ? 'Verified ✓' : 'Get verified — take a quick selfie'}
+                    {me.photoVerified ? tr('Verified ✓') : tr('Get verified — take a quick selfie')}
                   </AppText>
                 </View>
                 {me.photoVerified ? (
@@ -123,7 +124,7 @@ export default function MyProfileScreen() {
             {EDIT_SECTIONS.map((section) => (
               <View key={section.title}>
                 <AppText variant="title" style={styles.sectionTitle}>
-                  {section.title}
+                  {tr(section.title)}
                 </AppText>
                 <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   {section.keys.map((k, i) => {
@@ -142,10 +143,10 @@ export default function MyProfileScreen() {
                         <Ionicons name={f.icon} size={20} color={colors.textMuted} />
                         <View style={styles.flex}>
                           <AppText variant="body" weight="semibold">
-                            {f.title}
+                            {tr(f.title)}
                           </AppText>
                           <AppText variant="bodySmall" color={value ? colors.textMuted : colors.primary} numberOfLines={k === 'bio' ? 3 : 1}>
-                            {value || f.empty}
+                            {value || tr(f.empty)}
                           </AppText>
                         </View>
                         <Ionicons
@@ -168,7 +169,7 @@ export default function MyProfileScreen() {
         me={me}
         onSave={(patch) => {
           updateMe(patch);
-          toast.show('Saved');
+          toast.show(tr('Saved'));
         }}
         onClose={() => setField(null)}
       />
@@ -202,32 +203,32 @@ function EditPhotos() {
     setBusy(false);
     if (result.ok) {
       updateMe({ photos: [...photos, result.uri] });
-      toast.show('Photo added');
+      toast.show(tr('Photo added'));
     } else if (result.reason === 'denied') {
-      toast.show('Allow camera access in your phone settings to take a photo.');
+      toast.show(tr('Allow camera access in your phone settings to take a photo.'));
       Linking.openSettings().catch(() => {});
     } else if (result.reason === 'error') {
-      toast.show('Couldn’t add this photo. Try another one.');
+      toast.show(tr('Couldn’t add this photo. Try another one.'));
     }
   };
 
   const makeMain = (i: number) => {
     updateMe({ photos: [photos[i], ...photos.filter((_, n) => n !== i)] });
     setMenu(null);
-    toast.show('Main photo changed');
+    toast.show(tr('Main photo changed'));
   };
 
   const remove = (i: number) => {
     deletePhotoFile(photos[i]);
     updateMe({ photos: photos.filter((_, n) => n !== i) });
     setConfirmDelete(null);
-    toast.show('Photo removed');
+    toast.show(tr('Photo removed'));
   };
 
   return (
     <>
       <View style={styles.completeRow}>
-        <AppText variant="title">Complete profile</AppText>
+        <AppText variant="title">{tr('Complete profile')}</AppText>
         <View style={[styles.percent, { backgroundColor: percent === 100 ? colors.boost : colors.primary }]}>
           <AppText variant="caption" weight="bold" color={colors.onPrimary}>
             {percent}%
@@ -270,7 +271,7 @@ function EditPhotos() {
               {i === 0 && uri ? (
                 <View style={[styles.mainTag, { backgroundColor: colors.photoScrimBottom }]}>
                   <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
-                    Main
+                    {tr('Main')}
                   </AppText>
                 </View>
               ) : null}
@@ -279,44 +280,45 @@ function EditPhotos() {
         })}
       </View>
       <AppText variant="caption" muted>
-        {photos.length < MAX_PHOTOS ? `Get more likes with ${MAX_PHOTOS} photos. ` : ''}Your photos stay on this phone.
+        {photos.length < MAX_PHOTOS ? `${tr('Get more likes with {count} photos.', { count: MAX_PHOTOS })} ` : ''}
+        {tr('Your photos stay on this phone.')}
       </AppText>
 
       <Sheet visible={sourceOpen} onClose={() => setSourceOpen(false)}>
         <AppText variant="heading" align="center">
-          Add a photo
+          {tr('Add a photo')}
         </AppText>
-        <AppButton label="Take a photo" icon="camera-outline" onPress={() => add('camera')} />
-        <AppButton label="Choose from gallery" icon="images-outline" variant="secondary" onPress={() => add('library')} />
+        <AppButton label={tr('Take a photo')} icon="camera-outline" onPress={() => add('camera')} />
+        <AppButton label={tr('Choose from gallery')} icon="images-outline" variant="secondary" onPress={() => add('library')} />
       </Sheet>
 
       <Sheet visible={menu !== null} onClose={() => setMenu(null)}>
         <AppText variant="heading" align="center">
-          Photo {menu !== null ? menu + 1 : ''}
+          {tr('Photo {v}', { v: menu !== null ? menu + 1 : '' })}
         </AppText>
-        {menu !== null && menu > 0 ? <AppButton label="Make main photo" icon="star-outline" onPress={() => makeMain(menu)} /> : null}
+        {menu !== null && menu > 0 ? <AppButton label={tr('Make main photo')} icon="star-outline" onPress={() => makeMain(menu)} /> : null}
         <AppButton
-          label="Remove photo"
+          label={tr('Remove photo')}
           icon="trash-outline"
           variant="danger"
           onPress={() => {
             if (photos.length <= MIN_PHOTOS) {
               setMenu(null);
-              toast.show(`Keep at least ${MIN_PHOTOS} photos. Add a new one first.`);
+              toast.show(tr('Keep at least {MIN_PHOTOS} photos. Add a new one first.', { MIN_PHOTOS }));
               return;
             }
             setConfirmDelete(menu);
             setMenu(null);
           }}
         />
-        <AppButton label="Cancel" variant="secondary" onPress={() => setMenu(null)} />
+        <AppButton label={tr('Cancel')} variant="secondary" onPress={() => setMenu(null)} />
       </Sheet>
 
       <ConfirmModal
         visible={confirmDelete !== null}
-        title="Remove this photo?"
-        message="It will be removed from your profile."
-        confirmLabel="Remove"
+        title={tr('Remove this photo?')}
+        message={tr('It will be removed from your profile.')}
+        confirmLabel={tr('Remove')}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={() => {
           if (confirmDelete !== null) remove(confirmDelete);
@@ -349,7 +351,7 @@ function Tabs({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
           style={styles.tabBtn}
         >
           <AppText variant="body" weight="semibold" color={tab === t ? colors.text : colors.textMuted}>
-            {t === 'preview' ? 'Preview' : 'Edit'}
+            {t === 'preview' ? tr('Preview') : tr('Edit')}
           </AppText>
         </PressableScale>
       ))}

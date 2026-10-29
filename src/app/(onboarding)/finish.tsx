@@ -22,6 +22,7 @@ import {
 } from '../../onboarding/options';
 import { firstUnanswered, stepHref } from '../../onboarding/steps';
 import { useTheme } from '../../theme/ThemeProvider';
+import { tr } from '../../i18n/i18n';
 
 type SummaryRow = { icon: ComponentProps<typeof Ionicons>['name']; text: string };
 
@@ -53,23 +54,23 @@ export default function OnboardingFinishScreen() {
   const nationalities = (draft.nationalities ?? [])
     .map((code) => countryByCode(code))
     .filter((c) => c !== undefined)
-    .map((c) => `${flagOf(c.code)} ${c.nationality}`)
+    .map((c) => `${flagOf(c.code)} ${tr(c.nationality)}`)
     .join(' · ');
 
   const allRows: SummaryRow[] = [
     { icon: 'heart-outline', text: labelOf(INTENT_OPTIONS, draft.intent) },
-    { icon: 'briefcase-outline', text: draft.profession ?? '' },
+    { icon: 'briefcase-outline', text: draft.profession ? tr(draft.profession) : '' },
     { icon: 'school-outline', text: labelOf(EDUCATION_OPTIONS, draft.education) },
     { icon: 'flag-outline', text: nationalities },
     { icon: 'ribbon-outline', text: labelOf(MARITAL_OPTIONS, draft.maritalStatus) },
-    { icon: 'resize-outline', text: draft.heightCm ? `${draft.heightCm} cm · ${cmToFeet(draft.heightCm)}` : '' },
-    { icon: 'flame-outline', text: draft.smoking ? `Smoking: ${labelOf(SMOKING_OPTIONS, draft.smoking)}` : '' },
-    { icon: 'wine-outline', text: draft.drinking ? `Drinking: ${labelOf(DRINKING_OPTIONS, draft.drinking)}` : '' },
+    { icon: 'resize-outline', text: draft.heightCm ? tr('{heightCm} cm · {v}', { heightCm: draft.heightCm, v: cmToFeet(draft.heightCm) }) : '' },
+    { icon: 'flame-outline', text: draft.smoking ? tr('Smoking: {v}', { v: labelOf(SMOKING_OPTIONS, draft.smoking) }) : '' },
+    { icon: 'wine-outline', text: draft.drinking ? tr('Drinking: {v}', { v: labelOf(DRINKING_OPTIONS, draft.drinking) }) : '' },
     {
       icon: 'sparkles-outline',
       text: draft.religion && draft.religion !== 'prefer_not' ? labelOf(RELIGION_OPTIONS, draft.religion) : '',
     },
-    { icon: 'shield-checkmark-outline', text: draft.phoneVerified ? 'Phone verified' : '' },
+    { icon: 'shield-checkmark-outline', text: draft.phoneVerified ? tr('Phone verified') : '' },
   ];
   const rows = allRows.filter((r) => r.text);
 
@@ -92,11 +93,11 @@ export default function OnboardingFinishScreen() {
         )}
 
         <AppText variant="display">
-          {draft.firstName ?? 'You'}
+          {draft.firstName ?? tr('You')}
           {age != null ? `, ${age}` : ''}
         </AppText>
         <AppText variant="body" muted>
-          Your profile is ready. You can change it any time.
+          {tr('Your profile is ready. You can change it any time.')}
         </AppText>
 
         {draft.bio ? (
@@ -110,7 +111,7 @@ export default function OnboardingFinishScreen() {
             <View key={r.icon} style={styles.summaryRow}>
               <Ionicons name={r.icon} size={20} color={colors.primary} />
               <AppText variant="body" style={styles.flex}>
-                {r.text}
+                {tr(r.text)}
               </AppText>
             </View>
           ))}
@@ -121,7 +122,7 @@ export default function OnboardingFinishScreen() {
             {[...traits, ...interests].map((c) => (
               <View key={c.key} style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.card }]}>
                 <AppText variant="caption">
-                  {c.emoji} {c.label}
+                  {c.emoji} {tr(c.label)}
                 </AppText>
               </View>
             ))}
@@ -131,9 +132,9 @@ export default function OnboardingFinishScreen() {
 
       <View style={[styles.actions, { paddingBottom: insets.bottom + 20 }]}>
         {missing ? (
-          <AppButton label="Answer the missing question" onPress={() => router.push(stepHref(missing))} />
+          <AppButton label={tr('Answer the missing question')} onPress={() => router.push(stepHref(missing))} />
         ) : (
-          <AppButton label={busy ? 'Please wait…' : 'Start exploring'} onPress={finish} disabled={busy} />
+          <AppButton label={busy ? tr('Please wait…') : tr('Start exploring')} onPress={finish} disabled={busy} />
         )}
       </View>
     </View>

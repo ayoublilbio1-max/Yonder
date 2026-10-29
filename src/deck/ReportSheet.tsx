@@ -6,6 +6,7 @@ import { AppText } from '../components/AppText';
 import { Sheet } from '../components/Sheet';
 import type { Profile } from '../profiles/types';
 import { useTheme } from '../theme/ThemeProvider';
+import { tr } from '../i18n/i18n';
 
 // "Why are you reporting?" — reasons, then the profile is hidden for good (demo: nothing is sent).
 
@@ -37,10 +38,10 @@ export function ReportSheet({ profile, onClose, onReport }: Props) {
   return (
     <Sheet visible={profile !== null} onClose={close}>
       <AppText variant="heading" align="center">
-        Report {profile?.name ?? ''}
+        {tr('Report {v}', { v: profile?.name ?? '' })}
       </AppText>
       <AppText variant="bodySmall" muted align="center">
-        Why are you reporting this profile? {profile?.name ?? 'They'} won’t know you reported them.
+        {tr('Why are you reporting this profile? {v} won’t know you reported them.', { v: profile?.name ?? '' })}
       </AppText>
       <View>
         {REPORT_REASONS.map((r) => {
@@ -54,7 +55,7 @@ export function ReportSheet({ profile, onClose, onReport }: Props) {
               style={styles.row}
             >
               <AppText variant="body" weight={selected ? 'semibold' : 'regular'} style={styles.flex}>
-                {r}
+                {tr(r)}
               </AppText>
               <Ionicons
                 name={selected ? 'radio-button-on' : 'radio-button-off'}
@@ -66,7 +67,7 @@ export function ReportSheet({ profile, onClose, onReport }: Props) {
         })}
       </View>
       <AppButton
-        label="Report and hide"
+        label={tr('Report and hide')}
         variant="danger"
         disabled={!reason}
         onPress={() => {

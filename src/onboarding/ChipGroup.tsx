@@ -1,8 +1,9 @@
-import { StyleSheet, View } from "react-native";
-import { AppText } from "../components/AppText";
-import { PressableScale } from "../components/PressableScale";
-import { useTheme } from "../theme/ThemeProvider";
-import type { Chip } from "./interests";
+import { StyleSheet, View } from 'react-native';
+import { AppText } from '../components/AppText';
+import { PressableScale } from '../components/PressableScale';
+import { useTheme } from '../theme/ThemeProvider';
+import type { Chip } from './interests';
+import { tr } from '../i18n/i18n';
 
 // Wrapping row of emoji chips (interests, personality). Selected = pink.
 export function ChipGroup({
@@ -36,12 +37,8 @@ export function ChipGroup({
             ]}
           >
             <AppText variant="bodySmall">{c.emoji}</AppText>
-            <AppText
-              variant="bodySmall"
-              weight={isSelected ? "semibold" : "medium"}
-              color={isSelected ? colors.primary : colors.text}
-            >
-              {c.label}
+            <AppText variant="bodySmall" weight={isSelected ? 'semibold' : 'medium'} color={isSelected ? colors.primary : colors.text}>
+              {tr(c.label)}
             </AppText>
           </PressableScale>
         );
@@ -52,13 +49,13 @@ export function ChipGroup({
 
 const styles = StyleSheet.create({
   wrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
   chip: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     borderWidth: 1.5,
     borderRadius: 20,

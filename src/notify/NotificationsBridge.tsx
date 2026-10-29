@@ -1,11 +1,13 @@
-import * as Notifications from "expo-notifications";
-import { useRouter, type Href } from "expo-router";
-import { useEffect, useRef } from "react";
-import { AppState } from "react-native";
-import { useAuth } from "../auth/AuthProvider";
-import { useSwipe } from "../deck/SwipeProvider";
-import { askPermission, notify, syncDailyPicks } from "./notify";
-import { notifyPrefsReady, useNotifyPrefs } from "./prefs";
+import * as Notifications from 'expo-notifications';
+import { useRouter, type Href } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { AppState } from 'react-native';
+import { useAuth } from '../auth/AuthProvider';
+import { useSwipe } from '../deck/SwipeProvider';
+import { waitUntilUnlocked } from '../security/passcode';
+import { askPermission, notify, permissionState, syncDailyPicks } from './notify';
+import { notifyPrefsReady, useNotifyPrefs } from './prefs';
+import { tr } from '../i18n/i18n';
 
 // No UI. Mounted once inside UserProviders:
 // - "Welcome back" each time you open Yonder (app start, or back after 5+ minutes away)
@@ -35,27 +37,32 @@ export function NotificationsBridge() {
     if (!ready || !onboarded) return;
     const welcome = async () => {
       await notifyPrefsReady();
+      await waitUntilUnlocked(); // never over the passcode screen
+      const before = await permissionState();
       const ok = await askPermission();
       if (!ok) return;
+      if (before !== 'granted') syncDailyPicks(); // allowed just now: plan the 7 pm reminder (else Settings' effect did it)
       const n = likesRef.current;
-      await notify("welcome", {
-        title: `Welcome back${nameRef.current ? `, ${nameRef.current}` : ""} 👋`,
+      const name = nameRef.current;
+      await notify('welcome', {
+        title: name ? tr('Welcome back, {name} 👋', { name }) : tr('Welcome back 👋'),
         body:
-          n > 0
-            ? `${n} ${n === 1 ? "person likes" : "people like"} you. Keep swiping!`
-            : "New people are waiting for you. Start swiping!",
-        url: "/",
+          n === 1
+            ? tr('1 person likes you. Keep swiping!')
+            : n > 1
+              ? tr('{count} people like you. Keep swiping!', { count: n })
+              : tr('New people are waiting for you. Start swiping!'),
+        url: '/',
       });
-      syncDailyPicks();
     };
     if (!welcomedThisLaunch) {
       welcomedThisLaunch = true;
       welcome();
     }
     let leftAt = 0;
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "background") leftAt = Date.now();
-      if (state === "active" && leftAt && Date.now() - leftAt >= AWAY_MS) {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') leftAt = Date.now();
+      if (state === 'active' && leftAt && Date.now() - leftAt >= AWAY_MS) {
         leftAt = 0;
         welcome();
       }
@@ -74,14 +81,12 @@ export function NotificationsBridge() {
     if (!onboarded) return;
     const open = (response: Notifications.NotificationResponse | null) => {
       if (!response) return;
-      const id =
-        response.notification.request.identifier +
-        String(response.notification.date);
+      const id = response.notification.request.identifier + String(response.notification.date);
       if (handled.current === id) return;
       handled.current = id;
       Notifications.clearLastNotificationResponseAsync().catch(() => {}); // never opened again on the next start
       const url = response.notification.request.content.data?.url;
-      if (typeof url === "string" && url !== "/") {
+      if (typeof url === 'string' && url !== '/') {
         if (__DEV__) console.log(`[notify] tapped → ${url}`);
         router.push(url as Href);
       }

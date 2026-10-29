@@ -1,53 +1,40 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, type Href } from "expo-router";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentProps,
-  type ComponentRef,
-} from "react";
-import {
-  Pressable,
-  ScrollView,
-  Share,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { useSharedValue, withTiming } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText } from "../../components/AppText";
-import { ConfirmModal } from "../../components/ConfirmModal";
-import { Skeleton } from "../../components/Skeleton";
-import { useToast } from "../../components/Toast";
-import { actionGradients } from "../../constants/colors";
-import { BoostSheet } from "../../deck/BoostSheet";
-import { ComplimentSheet } from "../../deck/ComplimentSheet";
-import { EmptyDeck } from "../../deck/EmptyDeck";
-import { FiltersModal } from "../../deck/FiltersModal";
-import { MatchModal } from "../../deck/MatchModal";
-import { MediaViewer } from "../../deck/MediaViewer";
-import { buildNotifications } from "../../deck/notifications";
-import { NotificationsModal } from "../../deck/NotificationsModal";
-import { ProfileSections } from "../../deck/ProfileSections";
-import { ReportSheet } from "../../deck/ReportSheet";
-import { sortLabel } from "../../deck/sort";
-import { SortSheet } from "../../deck/SortSheet";
-import { SwipeCard, type FlingFn } from "../../deck/SwipeCard";
-import { useSwipe, type SwipeAction } from "../../deck/SwipeProvider";
-import { activeFilterCount } from "../../filters/filters";
-import { mainPhotoUri } from "../../profiles/data";
-import { isLocked } from "../../profiles/extras";
-import type { Profile } from "../../profiles/types";
-import { preloadSounds } from "../../sound/sounds";
-import { useBoostLeft } from "../../store/WalletProvider";
-import { useTheme } from "../../theme/ThemeProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { useRouter, type Href } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ComponentRef } from 'react';
+import { Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppText } from '../../components/AppText';
+import { ConfirmModal } from '../../components/ConfirmModal';
+import { Skeleton } from '../../components/Skeleton';
+import { useToast } from '../../components/Toast';
+import { BoostSheet } from '../../deck/BoostSheet';
+import { ComplimentSheet } from '../../deck/ComplimentSheet';
+import { EmptyDeck } from '../../deck/EmptyDeck';
+import { FiltersModal } from '../../deck/FiltersModal';
+import { MatchModal } from '../../deck/MatchModal';
+import { MediaViewer } from '../../deck/MediaViewer';
+import { buildNotifications } from '../../deck/notifications';
+import { NotificationsModal } from '../../deck/NotificationsModal';
+import { ProfileSections } from '../../deck/ProfileSections';
+import { actionGradients } from '../../constants/colors';
+import { ReportSheet } from '../../deck/ReportSheet';
+import { sortLabel } from '../../deck/sort';
+import { SortSheet } from '../../deck/SortSheet';
+import { SwipeCard, type FlingFn } from '../../deck/SwipeCard';
+import { useSwipe, type SwipeAction } from '../../deck/SwipeProvider';
+import { mainPhotoUri } from '../../profiles/data';
+import { activeFilterCount } from '../../filters/filters';
+import { isLocked } from '../../profiles/extras';
+import type { Profile } from '../../profiles/types';
+import { preloadSounds } from '../../sound/sounds';
+import { useBoostLeft } from '../../store/WalletProvider';
+import { useTheme } from '../../theme/ThemeProvider';
+import { tr } from '../../i18n/i18n';
 
-type IconName = ComponentProps<typeof Ionicons>["name"];
+type IconName = ComponentProps<typeof Ionicons>['name'];
 type Gradient = readonly [string, string];
 
 const BAR_HEIGHT = 96; // fixed swipe buttons above the tab bar (incl. fade)
@@ -93,21 +80,13 @@ export default function SwipeScreen() {
   const [boostOpen, setBoostOpen] = useState(false);
   const [notifSeenAt, setNotifSeenAt] = useState<number | null>(null); // null = list closed
 
-  const notifications = useMemo(
-    () => buildNotifications(show, me.firstName),
-    [show, me.firstName],
-  );
-  const hasNewNotifications = notifications.some(
-    (n) => n.at > saved.notificationsSeenAt,
-  );
+  const notifications = useMemo(() => buildNotifications(show, me.firstName), [show, me.firstName]);
+  const hasNewNotifications = notifications.some((n) => n.at > saved.notificationsSeenAt);
 
   const openNotifications = () => {
     setNotifSeenAt(saved.notificationsSeenAt); // keep the dots while the list is open
     markNotificationsSeen();
-    if (__DEV__)
-      console.log(
-        `[notif] open · ${notifications.filter((n) => n.at > saved.notificationsSeenAt).length} new`,
-      );
+    if (__DEV__) console.log(`[notif] open · ${notifications.filter((n) => n.at > saved.notificationsSeenAt).length} new`);
   };
 
   const top = deck[0];
@@ -118,10 +97,10 @@ export default function SwipeScreen() {
   const upcoming = deck
     .slice(1, 5)
     .map((p) => mainPhotoUri(p))
-    .join("|");
+    .join('|');
   useEffect(() => {
     if (!upcoming) return;
-    const urls = upcoming.split("|");
+    const urls = upcoming.split('|');
     Image.prefetch(urls).catch(() => {});
     if (__DEV__) console.log(`[deck] prefetch ${urls.length} photos`);
   }, [upcoming]);
@@ -150,8 +129,7 @@ export default function SwipeScreen() {
   const press = (action: SwipeAction) => {
     if (!top) return;
     if (busyRef.current) {
-      if (__DEV__)
-        console.log(`[deck] ${action} tap ignored (card still moving)`);
+      if (__DEV__) console.log(`[deck] ${action} tap ignored (card still moving)`);
       return;
     }
     busyRef.current = true;
@@ -168,7 +146,7 @@ export default function SwipeScreen() {
   const openMedia = () => {
     if (!top) return;
     if (isLocked(top)) {
-      toast.show(`${top.name}’s photos unlock after you match`);
+      toast.show(tr('{name}’s photos unlock after you match', { name: top.name }));
       if (__DEV__) console.log(`[deck] locked tap ${top.id}`);
       return;
     }
@@ -180,22 +158,18 @@ export default function SwipeScreen() {
     if (!top) return;
     try {
       const res = await Share.share({
-        message: `Check out ${top.name}, ${top.age} on Yonder (demo profile).`,
+        message: tr('Check out {name}, {age} on Yonder (demo profile).', { name: top.name, age: top.age }),
       });
       if (__DEV__) console.log(`[deck] share ${top.id} → ${res.action}`);
     } catch (e) {
-      if (__DEV__) console.log("[deck] share failed", String(e));
+      if (__DEV__) console.log('[deck] share failed', String(e));
     }
   };
 
   const favorite = () => {
     if (!top) return;
     const on = toggleFavorite(top.id);
-    toast.show(
-      on
-        ? `${top.name} added to your favorites`
-        : `${top.name} removed from favorites`,
-    );
+    toast.show(on ? tr('{name} added to your favorites', { name: top.name }) : tr('{name} removed from favorites', { name: top.name }));
   };
 
   const hide = (p: Profile, reason: string, message: string) => {
@@ -204,34 +178,24 @@ export default function SwipeScreen() {
   };
 
   const topBar = (
-    <View
-      style={[
-        styles.topBar,
-        { paddingTop: insets.top + 6, backgroundColor: colors.bg },
-      ]}
-    >
+    <View style={[styles.topBar, { paddingTop: insets.top + 6, backgroundColor: colors.bg }]}>
       <TopButton
         icon="options-outline"
-        label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
+        label={filterCount ? tr('Filters, {filterCount} on', { filterCount }) : tr('Filters')}
         color={filterCount ? colors.primary : undefined}
         dot={filterCount > 0}
         onPress={() => setFiltersOpen(true)}
       />
       <TopButton
         icon="swap-vertical"
-        label={`Sort: ${sortLabel(saved.sort)}`}
-        color={saved.sort !== "recommended" ? colors.primary : undefined}
-        dot={saved.sort !== "recommended"}
+        label={tr('Sort: {v}', { v: sortLabel(saved.sort) })}
+        color={saved.sort !== 'recommended' ? colors.primary : undefined}
+        dot={saved.sort !== 'recommended'}
         onPress={() => setSortOpen(true)}
       />
       <View style={styles.flex} />
       <BoostButton onPress={() => setBoostOpen(true)} />
-      <TopButton
-        icon="notifications-outline"
-        label="Notifications"
-        dot={hasNewNotifications}
-        onPress={openNotifications}
-      />
+      <TopButton icon="notifications-outline" label={tr('Notifications')} dot={hasNewNotifications} onPress={openNotifications} />
     </View>
   );
 
@@ -250,40 +214,19 @@ export default function SwipeScreen() {
           <EmptyDeck />
         </View>
       ) : (
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}
-        >
-          {filterNotice !== "none" ? (
-            <View
-              style={[
-                styles.notice,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <Ionicons
-                name="information-circle-outline"
-                size={18}
-                color={colors.textMuted}
-              />
+        <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          {filterNotice !== 'none' ? (
+            <View style={[styles.notice, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
               <AppText variant="caption" muted style={styles.flex}>
-                {filterNotice === "age"
-                  ? "Not many people match all your filters — showing people slightly outside your age range."
-                  : "Not many people match all your filters — showing people close to them."}
+                {filterNotice === 'age'
+                  ? tr('Not many people match all your filters — showing people slightly outside your age range.')
+                  : tr('Not many people match all your filters — showing people close to them.')}
               </AppText>
             </View>
           ) : null}
           <View style={[styles.cardBox, { height: cardHeight }]}>
-            {next ? (
-              <SwipeCard
-                key={next.id}
-                profile={next}
-                isTop={false}
-                progress={progress}
-                onSwiped={onSwiped}
-              />
-            ) : null}
+            {next ? <SwipeCard key={next.id} profile={next} isTop={false} progress={progress} onSwiped={onSwiped} /> : null}
             <SwipeCard
               key={top.id}
               profile={top}
@@ -312,46 +255,17 @@ export default function SwipeScreen() {
 
       {ready && top ? (
         <View style={styles.bar}>
-          <LinearGradient
-            colors={[colors.bgFade, colors.bg]}
-            locations={[0, 0.45]}
-            style={[StyleSheet.absoluteFill, styles.noTouch]}
-          />
+          <LinearGradient colors={[colors.bgFade, colors.bg]} locations={[0, 0.45]} style={[StyleSheet.absoluteFill, styles.noTouch]} />
           <View style={styles.actions}>
-            <ActionButton
-              icon="refresh"
-              gradient={actionGradients.rewind}
-              size={50}
-              label="Rewind"
-              onPress={rewind}
-              disabled={!canRewind}
-            />
-            <ActionButton
-              icon="close"
-              gradient={actionGradients.pass}
-              size={64}
-              label="Pass"
-              onPress={() => press("pass")}
-            />
-            <ActionButton
-              icon="star"
-              gradient={actionGradients.superLike}
-              size={50}
-              label="Super like"
-              onPress={() => press("superlike")}
-            />
-            <ActionButton
-              icon="heart"
-              gradient={actionGradients.like}
-              size={64}
-              label="Like"
-              onPress={() => press("like")}
-            />
+            <ActionButton icon="refresh" gradient={actionGradients.rewind} size={50} label={tr('Rewind')} onPress={rewind} disabled={!canRewind} />
+            <ActionButton icon="close" gradient={actionGradients.pass} size={64} label={tr('Pass')} onPress={() => press('pass')} />
+            <ActionButton icon="star" gradient={actionGradients.superLike} size={50} label={tr('Super like')} onPress={() => press('superlike')} />
+            <ActionButton icon="heart" gradient={actionGradients.like} size={64} label={tr('Like')} onPress={() => press('like')} />
             <ActionButton
               icon="chatbubble-ellipses"
               gradient={actionGradients.compliment}
               size={50}
-              label="Send compliment"
+              label={tr('Send compliment')}
               onPress={() => setComplimenting(top)}
             />
           </View>
@@ -374,26 +288,21 @@ export default function SwipeScreen() {
         onReport={(reason) => {
           const p = reporting;
           setReporting(null);
-          if (p)
-            hide(
-              p,
-              `report: ${reason}`,
-              `Thanks. ${p.name} was reported and hidden.`,
-            );
+          if (p) hide(p, `report: ${reason}`, tr('Thanks. {name} was reported and hidden.', { name: p.name }));
         }}
       />
 
       <ConfirmModal
         visible={blocking !== null}
         icon="ban-outline"
-        title={`Block ${blocking?.name ?? ""}?`}
-        message="You won’t see each other on Yonder again. They won’t be told."
-        confirmLabel="Block"
+        title={tr('Block {v}?', { v: blocking?.name ?? '' })}
+        message={tr('You won’t see each other on Yonder again. They won’t be told.')}
+        confirmLabel={tr('Block')}
         onCancel={() => setBlocking(null)}
         onConfirm={() => {
           const p = blocking;
           setBlocking(null);
-          if (p) hide(p, "block", `${p.name} is blocked`);
+          if (p) hide(p, 'block', tr('{name} is blocked', { name: p.name }));
         }}
       />
 
@@ -405,10 +314,10 @@ export default function SwipeScreen() {
           setComplimenting(null);
           if (!p) return;
           saveCompliment(p.id, text);
-          toast.show(`Compliment sent to ${p.name}`);
+          toast.show(tr('Compliment sent to {name}', { name: p.name }));
           // A compliment is also a like: the card leaves the deck.
-          if (top && top.id === p.id) press("like");
-          else swipe(p.id, "like");
+          if (top && top.id === p.id) press('like');
+          else swipe(p.id, 'like');
         }}
       />
 
@@ -434,12 +343,7 @@ export default function SwipeScreen() {
         }}
       />
 
-      <SortSheet
-        visible={sortOpen}
-        value={saved.sort}
-        onClose={() => setSortOpen(false)}
-        onChange={setSort}
-      />
+      <SortSheet visible={sortOpen} value={saved.sort} onClose={() => setSortOpen(false)} onChange={setSort} />
 
       <BoostSheet visible={boostOpen} onClose={() => setBoostOpen(false)} />
 
@@ -453,6 +357,7 @@ export default function SwipeScreen() {
           setBoostOpen(true);
         }}
       />
+
     </View>
   );
 }
@@ -477,20 +382,10 @@ function TopButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={6}
-      style={({ pressed }) => [
-        styles.topButton,
-        { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
-      ]}
+      style={({ pressed }) => [styles.topButton, { backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 }]}
     >
       <Ionicons name={icon} size={21} color={color ?? colors.text} />
-      {dot ? (
-        <View
-          style={[
-            styles.topDot,
-            { backgroundColor: colors.primary, borderColor: colors.surface },
-          ]}
-        />
-      ) : null}
+      {dot ? <View style={[styles.topDot, { backgroundColor: colors.primary, borderColor: colors.surface }]} /> : null}
     </Pressable>
   );
 }
@@ -505,21 +400,14 @@ function BoostButton({ onPress }: { onPress: () => void }) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={active ? `Boost on, ${mins} minutes left` : "Boost"}
+      accessibilityLabel={active ? `Boost on, ${mins} minutes left` : 'Boost'}
       hitSlop={6}
       style={({ pressed }) => [
         active ? styles.boostPill : styles.topButton,
-        {
-          backgroundColor: active ? colors.boost : colors.surface,
-          opacity: pressed ? 0.7 : 1,
-        },
+        { backgroundColor: active ? colors.boost : colors.surface, opacity: pressed ? 0.7 : 1 },
       ]}
     >
-      <Ionicons
-        name="flash"
-        size={20}
-        color={active ? colors.onBoost : colors.boost}
-      />
+      <Ionicons name="flash" size={20} color={active ? colors.onBoost : colors.boost} />
       {active ? (
         <AppText variant="label" weight="bold" color={colors.onBoost}>
           {mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`}
@@ -589,8 +477,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topBar: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     paddingHorizontal: 12,
     paddingBottom: 8,
@@ -599,12 +487,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notice: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginHorizontal: 12,
     marginBottom: 10,
@@ -613,7 +501,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   topDot: {
-    position: "absolute",
+    position: 'absolute',
     top: 8,
     right: 9,
     width: 10,
@@ -624,8 +512,8 @@ const styles = StyleSheet.create({
   boostPill: {
     height: 42,
     borderRadius: 21,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
     paddingHorizontal: 12,
   },
@@ -647,31 +535,31 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   noTouch: {
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   bar: {
-    position: "absolute",
+    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     height: BAR_HEIGHT,
-    justifyContent: "flex-end",
-    pointerEvents: "box-none", // taps between the buttons reach the page
+    justifyContent: 'flex-end',
+    pointerEvents: 'box-none', // taps between the buttons reach the page
   },
   actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-evenly",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
     paddingHorizontal: 8,
     paddingBottom: 12,
-    pointerEvents: "box-none",
+    pointerEvents: 'box-none',
   },
   action: {
     elevation: 6,
   },
   actionFill: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,7 +1,8 @@
-import { APP_NAME } from "../constants/app";
-import { useTheme } from "../theme/ThemeProvider";
-import { AppButton } from "./AppButton";
-import { ThemedModal } from "./ThemedModal";
+import { APP_NAME } from '../constants/app';
+import { useTheme } from '../theme/ThemeProvider';
+import { AppButton } from './AppButton';
+import { ThemedModal } from './ThemedModal';
+import { tr } from '../i18n/i18n';
 
 // Opened by any feature that isn't built in the demo (never says "coming soon").
 
@@ -21,10 +22,10 @@ export function NotInDemoModal({ visible, feature, onClose }: Props) {
       icon="sparkles-outline"
       iconColor={colors.primary}
       iconBg={colors.primarySoft}
-      title="Not in the demo"
-      message={`${feature} isn't included in this demo of ${APP_NAME}. Everything else you see works like the real app.`}
+      title={tr('Not in the demo')}
+      message={tr('{feature} isn\'t included in this demo of {APP_NAME}. Everything else you see works like the real app.', { feature, APP_NAME })}
     >
-      <AppButton label="Got it" onPress={onClose} />
+      <AppButton label={tr('Got it')} onPress={onClose} />
     </ThemedModal>
   );
 }

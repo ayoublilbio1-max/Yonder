@@ -1,37 +1,32 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, {
-  Easing,
   Extrapolation,
-  FadeIn,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  Easing,
+  FadeIn,
   withDelay,
   withSequence,
   withTiming,
   type SharedValue,
-} from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
-import { AppText } from "../components/AppText";
-import { Skeleton } from "../components/Skeleton";
-import { mainPhotoUri, mediaOf } from "../profiles/data";
-import {
-  activityLabel,
-  isGold,
-  isJustJoined,
-  isLocked,
-  isRecentlyActive,
-} from "../profiles/extras";
-import { profileKm } from "../profiles/session";
-import type { Profile } from "../profiles/types";
-import { formatDistance, useDistanceUnit } from "../settings/units";
-import { useTheme } from "../theme/ThemeProvider";
-import type { SwipeAction } from "./SwipeProvider";
+} from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { AppText } from '../components/AppText';
+import { Skeleton } from '../components/Skeleton';
+import { mainPhotoUri, mediaOf } from '../profiles/data';
+import { activityLabel, isGold, isJustJoined, isLocked, isRecentlyActive } from '../profiles/extras';
+import { profileKm } from '../profiles/session';
+import type { Profile } from '../profiles/types';
+import { formatDistance, useDistanceUnit } from '../settings/units';
+import { useTheme } from '../theme/ThemeProvider';
+import type { SwipeAction } from './SwipeProvider';
+import { tr } from '../i18n/i18n';
 
 // Profile card at the top of the Swipe page: swipe left / right, tap to open the photos.
 // Vertical drags are left to the page so it can scroll (super like is a button only).
@@ -64,14 +59,7 @@ const LEAN = { duration: LEAN_MS, easing: EASE_OUT };
 const OUT = { duration: OUT_MS, easing: EASE_IN_OUT };
 const BACK = { duration: 320, easing: EASE }; // let go too early → glides back to the middle
 
-export function SwipeCard({
-  profile,
-  isTop,
-  progress,
-  onSwiped,
-  onOpen,
-  registerFling,
-}: Props) {
+export function SwipeCard({ profile, isTop, progress, onSwiped, onOpen, registerFling }: Props) {
   const colors = useTheme();
   const unit = useDistanceUnit();
   const { width, height } = useWindowDimensions();
@@ -84,8 +72,8 @@ export function SwipeCard({
 
   // Finger swipe: keep the finger's speed and slow down smoothly as it leaves.
   const fling = (action: SwipeAction, velocityX: number) => {
-    "worklet";
-    const dir = action === "like" ? 1 : -1;
+    'worklet';
+    const dir = action === 'like' ? 1 : -1;
     const toX = dir * width * 1.5;
     const remaining = Math.abs(toX - tx.get());
     const speed = Math.max(Math.abs(velocityX), 1000);
@@ -101,18 +89,13 @@ export function SwipeCard({
   };
 
   const buttonFling = (action: SwipeAction) => {
-    "worklet";
+    'worklet';
     const done = (finished?: boolean) => {
-      "worklet";
+      'worklet';
       if (finished) scheduleOnRN(onSwiped, action);
     };
-    progress.set(
-      withTiming(1, {
-        duration: LEAN_MS + HOLD_MS + OUT_MS,
-        easing: EASE_IN_OUT,
-      }),
-    );
-    if (action === "superlike") {
+    progress.set(withTiming(1, { duration: LEAN_MS + HOLD_MS + OUT_MS, easing: EASE_IN_OUT }));
+    if (action === 'superlike') {
       ty.set(
         withSequence(
           withTiming(-height * 0.32, LEAN),
@@ -121,19 +104,14 @@ export function SwipeCard({
       );
       return;
     }
-    const dir = action === "like" ? 1 : -1;
+    const dir = action === 'like' ? 1 : -1;
     tx.set(
       withSequence(
         withTiming(dir * SWIPE_X * 1.3, LEAN),
         withDelay(HOLD_MS, withTiming(dir * width * 1.6, OUT, done)),
       ),
     );
-    ty.set(
-      withSequence(
-        withTiming(-10, LEAN),
-        withDelay(HOLD_MS, withTiming(70, OUT)),
-      ),
-    );
+    ty.set(withSequence(withTiming(-10, LEAN), withDelay(HOLD_MS, withTiming(70, OUT))));
   };
 
   // Let the action buttons swipe this card while it's on top.
@@ -148,17 +126,15 @@ export function SwipeCard({
     activeOffsetX: [-12, 12],
     failOffsetY: [-10, 10], // a vertical drag scrolls the page instead
     onUpdate: (e) => {
-      "worklet";
+      'worklet';
       tx.set(e.translationX);
       ty.set(e.translationY * 0.3);
       progress.set(Math.min(1, Math.abs(e.translationX) / (width * 0.5)));
     },
     onDeactivate: (e) => {
-      "worklet";
-      if (e.translationX > SWIPE_X || e.velocityX > FLING_VELOCITY)
-        fling("like", e.velocityX);
-      else if (e.translationX < -SWIPE_X || e.velocityX < -FLING_VELOCITY)
-        fling("pass", e.velocityX);
+      'worklet';
+      if (e.translationX > SWIPE_X || e.velocityX > FLING_VELOCITY) fling('like', e.velocityX);
+      else if (e.translationX < -SWIPE_X || e.velocityX < -FLING_VELOCITY) fling('pass', e.velocityX);
       else {
         tx.set(withTiming(0, BACK));
         ty.set(withTiming(0, BACK));
@@ -169,82 +145,34 @@ export function SwipeCard({
 
   const cardStyle = useAnimatedStyle(() => {
     if (!isTop) {
-      const scale = interpolate(
-        progress.get(),
-        [0, 1],
-        [0.95, 1],
-        Extrapolation.CLAMP,
-      );
+      const scale = interpolate(progress.get(), [0, 1], [0.95, 1], Extrapolation.CLAMP);
       return { transform: [{ scale }] };
     }
     const rotate = interpolate(tx.get(), [-width, width], [-10, 10]);
     // fades out softly as it leaves the screen (sideways or up)
-    const away = Math.max(
-      Math.abs(tx.get()) / width,
-      Math.abs(ty.get()) / height,
-    );
+    const away = Math.max(Math.abs(tx.get()) / width, Math.abs(ty.get()) / height);
     const opacity = interpolate(away, [0.6, 1.3], [1, 0], Extrapolation.CLAMP);
-    return {
-      opacity,
-      transform: [
-        { translateX: tx.get() },
-        { translateY: ty.get() },
-        { rotate: `${rotate}deg` },
-      ],
-    };
+    return { opacity, transform: [{ translateX: tx.get() }, { translateY: ty.get() }, { rotate: `${rotate}deg` }] };
   });
 
   // Stamps fade in and "land" (shrink from 1.4 to 1) as the card moves.
   const likeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(tx.get(), [20, SWIPE_X], [0, 1], Extrapolation.CLAMP),
     transform: [
-      { rotate: "-18deg" },
-      {
-        scale: interpolate(
-          tx.get(),
-          [20, SWIPE_X],
-          [1.4, 1],
-          Extrapolation.CLAMP,
-        ),
-      },
+      { rotate: '-18deg' },
+      { scale: interpolate(tx.get(), [20, SWIPE_X], [1.4, 1], Extrapolation.CLAMP) },
     ],
   }));
   const nopeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      tx.get(),
-      [-SWIPE_X, -20],
-      [1, 0],
-      Extrapolation.CLAMP,
-    ),
+    opacity: interpolate(tx.get(), [-SWIPE_X, -20], [1, 0], Extrapolation.CLAMP),
     transform: [
-      { rotate: "18deg" },
-      {
-        scale: interpolate(
-          tx.get(),
-          [-SWIPE_X, -20],
-          [1, 1.4],
-          Extrapolation.CLAMP,
-        ),
-      },
+      { rotate: '18deg' },
+      { scale: interpolate(tx.get(), [-SWIPE_X, -20], [1, 1.4], Extrapolation.CLAMP) },
     ],
   }));
   const superStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      ty.get(),
-      [-height * 0.3, -40],
-      [1, 0],
-      Extrapolation.CLAMP,
-    ),
-    transform: [
-      {
-        scale: interpolate(
-          ty.get(),
-          [-height * 0.3, -40],
-          [1, 1.4],
-          Extrapolation.CLAMP,
-        ),
-      },
-    ],
+    opacity: interpolate(ty.get(), [-height * 0.3, -40], [1, 0], Extrapolation.CLAMP),
+    transform: [{ scale: interpolate(ty.get(), [-height * 0.3, -40], [1, 1.4], Extrapolation.CLAMP) }],
   }));
 
   const gold = isGold(profile);
@@ -281,44 +209,24 @@ export function SwipeCard({
 
         {locked ? (
           <View style={[styles.lockWrap, styles.noTouch]}>
-            <View
-              style={[
-                styles.lockCircle,
-                { backgroundColor: colors.photoScrimTop },
-              ]}
-            >
+            <View style={[styles.lockCircle, { backgroundColor: colors.photoScrimTop }]}>
               <Ionicons name="lock-closed" size={30} color={colors.onPhoto} />
             </View>
-            <AppText
-              variant="bodySmall"
-              weight="semibold"
-              color={colors.onPhoto}
-              align="center"
-            >
-              {profile.name} shares photos after you match
+            <AppText variant="bodySmall" weight="semibold" color={colors.onPhoto} align="center">
+              {tr('{name} shares photos after you match', { name: profile.name })}
             </AppText>
           </View>
         ) : null}
 
         <LinearGradient
-          colors={[
-            "transparent",
-            colors.photoScrimMiddle,
-            colors.photoScrimBottom,
-          ]}
+          colors={['transparent', colors.photoScrimMiddle, colors.photoScrimBottom]}
           locations={[0.5, 0.7, 1]}
           style={[StyleSheet.absoluteFill, styles.noTouch]}
         />
 
         {/* media count */}
         {!locked && mediaCount > 1 ? (
-          <View
-            style={[
-              styles.countPill,
-              styles.noTouch,
-              { backgroundColor: colors.photoScrimTop },
-            ]}
-          >
+          <View style={[styles.countPill, styles.noTouch, { backgroundColor: colors.photoScrimTop }]}>
             <Ionicons name="images-outline" size={14} color={colors.onPhoto} />
             <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
               1/{mediaCount}
@@ -327,43 +235,19 @@ export function SwipeCard({
         ) : null}
 
         {/* stamps */}
-        <Animated.View
-          style={[
-            styles.stamp,
-            styles.stampLeft,
-            { borderColor: colors.stampLike },
-            styles.noTouch,
-            likeStyle,
-          ]}
-        >
+        <Animated.View style={[styles.stamp, styles.stampLeft, { borderColor: colors.stampLike }, styles.noTouch, likeStyle]}>
           <AppText variant="display" color={colors.stampLike}>
-            LIKE
+            {tr('LIKE')}
           </AppText>
         </Animated.View>
-        <Animated.View
-          style={[
-            styles.stamp,
-            styles.stampRight,
-            { borderColor: colors.stampNope },
-            styles.noTouch,
-            nopeStyle,
-          ]}
-        >
+        <Animated.View style={[styles.stamp, styles.stampRight, { borderColor: colors.stampNope }, styles.noTouch, nopeStyle]}>
           <AppText variant="display" color={colors.stampNope}>
-            NOPE
+            {tr('NOPE')}
           </AppText>
         </Animated.View>
-        <Animated.View
-          style={[
-            styles.stamp,
-            styles.stampMiddle,
-            { borderColor: colors.superLike },
-            styles.noTouch,
-            superStyle,
-          ]}
-        >
+        <Animated.View style={[styles.stamp, styles.stampMiddle, { borderColor: colors.superLike }, styles.noTouch, superStyle]}>
           <AppText variant="title" color={colors.superLike}>
-            SUPER LIKE
+            {tr('SUPER LIKE')}
           </AppText>
         </Animated.View>
 
@@ -374,43 +258,22 @@ export function SwipeCard({
               {gold ? (
                 <View style={[styles.badge, { backgroundColor: colors.gold }]}>
                   <Ionicons name="star" size={12} color={colors.onPhoto} />
-                  <AppText
-                    variant="caption"
-                    weight="bold"
-                    color={colors.onPhoto}
-                  >
-                    Gold
+                  <AppText variant="caption" weight="bold" color={colors.onPhoto}>
+                    {tr('Gold')}
                   </AppText>
                 </View>
               ) : null}
               {justJoined ? (
-                <View
-                  style={[styles.badge, { backgroundColor: colors.primary }]}
-                >
-                  <AppText
-                    variant="caption"
-                    weight="bold"
-                    color={colors.onPrimary}
-                  >
-                    Just joined
+                <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+                  <AppText variant="caption" weight="bold" color={colors.onPrimary}>
+                    {tr('Just joined')}
                   </AppText>
                 </View>
               ) : null}
               {active ? (
-                <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: colors.photoScrimTop },
-                  ]}
-                >
-                  <View
-                    style={[styles.dot, { backgroundColor: colors.online }]}
-                  />
-                  <AppText
-                    variant="caption"
-                    weight="semibold"
-                    color={colors.onPhoto}
-                  >
+                <View style={[styles.badge, { backgroundColor: colors.photoScrimTop }]}>
+                  <View style={[styles.dot, { backgroundColor: colors.online }]} />
+                  <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
                     {activityLabel(profile)}
                   </AppText>
                 </View>
@@ -418,46 +281,23 @@ export function SwipeCard({
             </View>
           ) : null}
           <View style={styles.nameRow}>
-            <AppText
-              variant="display"
-              color={colors.onPhoto}
-              numberOfLines={1}
-              style={styles.shrink}
-            >
+            <AppText variant="display" color={colors.onPhoto} numberOfLines={1} style={styles.shrink}>
               {profile.name}, {profile.age}
             </AppText>
-            {profile.verified ? (
-              <Ionicons
-                name="checkmark-circle"
-                size={26}
-                color={colors.verified}
-              />
-            ) : null}
+            {profile.verified ? <Ionicons name="checkmark-circle" size={26} color={colors.verified} /> : null}
           </View>
           {profile.profession ? (
             <View style={styles.line}>
-              <Ionicons
-                name="briefcase-outline"
-                size={16}
-                color={colors.onPhotoMuted}
-              />
-              <AppText
-                variant="body"
-                color={colors.onPhotoMuted}
-                numberOfLines={1}
-              >
-                {profile.profession}
+              <Ionicons name="briefcase-outline" size={16} color={colors.onPhotoMuted} />
+              <AppText variant="body" color={colors.onPhotoMuted} numberOfLines={1}>
+                {tr(profile.profession)}
               </AppText>
             </View>
           ) : null}
           <View style={styles.line}>
-            <Ionicons
-              name="location-outline"
-              size={16}
-              color={colors.onPhotoMuted}
-            />
+            <Ionicons name="location-outline" size={16} color={colors.onPhotoMuted} />
             <AppText variant="body" color={colors.onPhotoMuted}>
-              {formatDistance(profileKm(profile), unit)} away
+              {tr('{v} away', { v: formatDistance(profileKm(profile), unit) })}
             </AppText>
           </View>
         </View>
@@ -468,28 +308,28 @@ export function SwipeCard({
 
 const styles = StyleSheet.create({
   noTouch: {
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   card: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     borderRadius: 22,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   shrink: {
     flexShrink: 1,
   },
   lockWrap: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
     paddingHorizontal: 40,
     paddingBottom: 80,
@@ -498,22 +338,22 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countPill: {
-    position: "absolute",
+    position: 'absolute',
     top: 12,
     right: 12,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 5,
     borderRadius: 12,
     paddingHorizontal: 9,
     paddingVertical: 4,
   },
   stamp: {
-    position: "absolute",
+    position: 'absolute',
     borderWidth: 4,
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -528,25 +368,25 @@ const styles = StyleSheet.create({
     right: 24,
   },
   stampMiddle: {
-    top: "40%",
-    alignSelf: "center",
+    top: '40%',
+    alignSelf: 'center',
   },
   info: {
-    position: "absolute",
+    position: 'absolute',
     left: 18,
     right: 18,
     bottom: 18,
     gap: 4,
   },
   badges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
     marginBottom: 4,
   },
   badge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
     borderRadius: 10,
     paddingHorizontal: 8,
@@ -558,13 +398,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   line: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
 });

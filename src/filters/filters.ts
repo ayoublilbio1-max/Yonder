@@ -1,18 +1,9 @@
-import { PROFILES } from "../profiles/data";
-import {
-  isGold,
-  isJustJoined,
-  isLocked,
-  lastActiveHours,
-} from "../profiles/extras";
-import { distanceKm, sessionRandom } from "../profiles/session";
-import type {
-  Profile,
-  ProfileGender,
-  ProfileIntent,
-  ProfileMarital,
-} from "../profiles/types";
-import { formatDistance, type DistanceUnit } from "../settings/units";
+import { PROFILES } from '../profiles/data';
+import { isGold, isJustJoined, isLocked, lastActiveHours } from '../profiles/extras';
+import { distanceKm, sessionRandom } from '../profiles/session';
+import type { Profile, ProfileGender, ProfileIntent, ProfileMarital } from '../profiles/types';
+import { formatDistance, type DistanceUnit } from '../settings/units';
+import { tr } from '../i18n/i18n';
 
 // Filters for the Swipe deck + rule 9.4 "never an empty result".
 //
@@ -38,42 +29,36 @@ export function ageLabel(min: number, max: number) {
 export function heightRangeLabel(min: number, max: number) {
   return `${min} – ${max >= HEIGHT_MAX ? `${HEIGHT_MAX}+` : max} cm`;
 }
-export function distanceLabel(km: number | null, unit: DistanceUnit = "km") {
-  return km === null ? "Anywhere" : `Up to ${formatDistance(km, unit)}`;
+export function distanceLabel(km: number | null, unit: DistanceUnit = 'km') {
+  return km === null ? tr('Anywhere') : tr('Up to {v}', { v: formatDistance(km, unit) });
 }
 
 // Ethnicity = the region of the profile's origins (the data has no other ethnicity field).
 export const ETHNICITY_OF: Record<string, string> = {
-  American: "North American",
-  British: "British & Irish",
-  Irish: "British & Irish",
-  French: "Western European",
-  German: "Western European",
-  Dutch: "Western European",
-  Belgian: "Western European",
-  Spanish: "Southern European",
-  Italian: "Southern European",
-  Portuguese: "Southern European",
-  Greek: "Southern European",
-  Swedish: "Northern European",
-  Polish: "Central & Eastern European",
+  American: 'North American',
+  British: 'British & Irish',
+  Irish: 'British & Irish',
+  French: 'Western European',
+  German: 'Western European',
+  Dutch: 'Western European',
+  Belgian: 'Western European',
+  Spanish: 'Southern European',
+  Italian: 'Southern European',
+  Portuguese: 'Southern European',
+  Greek: 'Southern European',
+  Swedish: 'Northern European',
+  Polish: 'Central & Eastern European',
 };
 
-export type ActiveWithin = "any" | "8h" | "today" | "week" | "month";
+export type ActiveWithin = 'any' | '8h' | 'today' | 'week' | 'month';
 export const ACTIVE_OPTIONS: { key: ActiveWithin; label: string }[] = [
-  { key: "any", label: "Any time" },
-  { key: "8h", label: "Last 8 hours" },
-  { key: "today", label: "Today" },
-  { key: "week", label: "Last week" },
-  { key: "month", label: "Last month" },
+  { key: 'any', label: 'Any time' },
+  { key: '8h', label: 'Last 8 hours' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Last week' },
+  { key: 'month', label: 'Last month' },
 ];
-const ACTIVE_HOURS: Record<ActiveWithin, number> = {
-  any: Infinity,
-  "8h": 8,
-  today: 23,
-  week: 24 * 7,
-  month: 24 * 31,
-};
+const ACTIVE_HOURS: Record<ActiveWithin, number> = { any: Infinity, '8h': 8, today: 23, week: 24 * 7, month: 24 * 31 };
 
 export type Filters = {
   ageMin: number;
@@ -86,7 +71,7 @@ export type Filters = {
   heightMin: number;
   heightMax: number; // HEIGHT_MAX = 195 cm +
   marital: ProfileMarital[];
-  children: "any" | "yes" | "no";
+  children: 'any' | 'yes' | 'no';
   languages: string[];
   education: string[];
   professions: string[];
@@ -94,7 +79,7 @@ export type Filters = {
   personality: string[];
   drinking: string[];
   smoking: string[];
-  photos: "any" | "clear" | "blurred";
+  photos: 'any' | 'clear' | 'blurred';
   // Gold (advanced)
   completeBio: boolean;
   verified: boolean;
@@ -114,7 +99,7 @@ export const DEFAULT_FILTERS: Filters = {
   heightMin: HEIGHT_MIN,
   heightMax: HEIGHT_MAX,
   marital: [],
-  children: "any",
+  children: 'any',
   languages: [],
   education: [],
   professions: [],
@@ -122,10 +107,10 @@ export const DEFAULT_FILTERS: Filters = {
   personality: [],
   drinking: [],
   smoking: [],
-  photos: "any",
+  photos: 'any',
   completeBio: false,
   verified: false,
-  active: "any",
+  active: 'any',
   goldOnly: false,
   justJoined: false,
 };
@@ -149,11 +134,11 @@ export function activeFilterCount(f: Filters) {
     f.ageMin !== AGE_MIN || f.ageMax !== AGE_MAX,
     f.heightMin !== HEIGHT_MIN || f.heightMax !== HEIGHT_MAX,
     f.distance !== null,
-    f.children !== "any",
-    f.photos !== "any",
+    f.children !== 'any',
+    f.photos !== 'any',
     f.completeBio,
     f.verified,
-    f.active !== "any",
+    f.active !== 'any',
     f.goldOnly,
     f.justJoined,
   ].filter(Boolean).length;
@@ -178,17 +163,13 @@ function valuesBy<T extends string>(pick: (p: Profile) => T | T[]) {
   const count = new Map<T, number>();
   PROFILES.forEach((p) => {
     const v = pick(p);
-    (Array.isArray(v) ? v : [v]).forEach((x) =>
-      count.set(x, (count.get(x) ?? 0) + 1),
-    );
+    (Array.isArray(v) ? v : [v]).forEach((x) => count.set(x, (count.get(x) ?? 0) + 1));
   });
   return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([v]) => v);
 }
 
 export const OPTIONS = {
-  religions: valuesBy((p) => p.religion).filter(
-    (r) => r !== "Prefer not to say",
-  ),
+  religions: valuesBy((p) => p.religion).filter((r) => r !== 'Prefer not to say'),
   ethnicities: [...new Set(Object.values(ETHNICITY_OF))],
   nationalities: valuesBy((p) => p.origins),
   languages: valuesBy((p) => p.languages),
@@ -215,17 +196,12 @@ function passesSoft(p: Profile, f: Filters) {
   if (f.intents.length && !f.intents.includes(p.intent)) return false;
   if (f.religions.length && !f.religions.includes(p.religion)) return false;
   if (f.marital.length && !f.marital.includes(p.marital)) return false;
-  if (f.children !== "any" && p.hasChildren !== (f.children === "yes"))
-    return false;
-  if (f.languages.length && !p.languages.some((l) => f.languages.includes(l)))
-    return false;
+  if (f.children !== 'any' && p.hasChildren !== (f.children === 'yes')) return false;
+  if (f.languages.length && !p.languages.some((l) => f.languages.includes(l))) return false;
   if (f.education.length && !f.education.includes(p.education)) return false;
-  if (f.professions.length && !f.professions.includes(p.profession))
-    return false;
-  if (f.interests.length && !p.interests.some((i) => f.interests.includes(i)))
-    return false;
-  if (f.personality.length && !f.personality.includes(p.personality))
-    return false;
+  if (f.professions.length && !f.professions.includes(p.profession)) return false;
+  if (f.interests.length && !p.interests.some((i) => f.interests.includes(i))) return false;
+  if (f.personality.length && !f.personality.includes(p.personality)) return false;
   if (f.drinking.length && !f.drinking.includes(p.drinking)) return false;
   if (f.smoking.length && !f.smoking.includes(p.smoking)) return false;
   return true;
@@ -233,33 +209,21 @@ function passesSoft(p: Profile, f: Filters) {
 
 function adjust(p: Profile, f: Filters): Profile {
   const o: Partial<Profile> = {};
-  if (f.intents.length && !f.intents.includes(p.intent))
-    o.intent = pick(p, "intent", f.intents);
-  if (f.religions.length && !f.religions.includes(p.religion))
-    o.religion = pick(p, "religion", f.religions);
-  if (f.marital.length && !f.marital.includes(p.marital))
-    o.marital = pick(p, "marital", f.marital);
-  if (f.children !== "any" && p.hasChildren !== (f.children === "yes"))
-    o.hasChildren = f.children === "yes";
+  if (f.intents.length && !f.intents.includes(p.intent)) o.intent = pick(p, 'intent', f.intents);
+  if (f.religions.length && !f.religions.includes(p.religion)) o.religion = pick(p, 'religion', f.religions);
+  if (f.marital.length && !f.marital.includes(p.marital)) o.marital = pick(p, 'marital', f.marital);
+  if (f.children !== 'any' && p.hasChildren !== (f.children === 'yes')) o.hasChildren = f.children === 'yes';
   if (f.languages.length && !p.languages.some((l) => f.languages.includes(l))) {
-    o.languages = [...p.languages, pick(p, "language", f.languages)];
+    o.languages = [...p.languages, pick(p, 'language', f.languages)];
   }
-  if (f.education.length && !f.education.includes(p.education))
-    o.education = pick(p, "education", f.education);
-  if (f.professions.length && !f.professions.includes(p.profession))
-    o.profession = pick(p, "profession", f.professions);
+  if (f.education.length && !f.education.includes(p.education)) o.education = pick(p, 'education', f.education);
+  if (f.professions.length && !f.professions.includes(p.profession)) o.profession = pick(p, 'profession', f.professions);
   if (f.interests.length && !p.interests.some((i) => f.interests.includes(i))) {
-    o.interests = [pick(p, "interest", f.interests), ...p.interests].slice(
-      0,
-      6,
-    );
+    o.interests = [pick(p, 'interest', f.interests), ...p.interests].slice(0, 6);
   }
-  if (f.personality.length && !f.personality.includes(p.personality))
-    o.personality = pick(p, "personality", f.personality);
-  if (f.drinking.length && !f.drinking.includes(p.drinking))
-    o.drinking = pick(p, "drinking", f.drinking);
-  if (f.smoking.length && !f.smoking.includes(p.smoking))
-    o.smoking = pick(p, "smoking", f.smoking);
+  if (f.personality.length && !f.personality.includes(p.personality)) o.personality = pick(p, 'personality', f.personality);
+  if (f.drinking.length && !f.drinking.includes(p.drinking)) o.drinking = pick(p, 'drinking', f.drinking);
+  if (f.smoking.length && !f.smoking.includes(p.smoking)) o.smoking = pick(p, 'smoking', f.smoking);
   OVERRIDES.set(p.id, o);
   return { ...p, ...o };
 }
@@ -274,26 +238,15 @@ function passesHard(p: Profile, f: Filters, relaxOthers: boolean) {
   if (relaxOthers) return true;
   if (f.heightMin !== HEIGHT_MIN || f.heightMax !== HEIGHT_MAX) {
     const h = p.heightCm;
-    if (
-      h === null ||
-      h < f.heightMin ||
-      (f.heightMax < HEIGHT_MAX && h > f.heightMax)
-    )
-      return false;
+    if (h === null || h < f.heightMin || (f.heightMax < HEIGHT_MAX && h > f.heightMax)) return false;
   }
-  if (
-    f.ethnicities.length &&
-    !f.ethnicities.includes(ETHNICITY_OF[p.origins] ?? "")
-  )
-    return false;
-  if (f.nationalities.length && !f.nationalities.includes(p.origins))
-    return false;
-  if (f.photos === "clear" && isLocked(p)) return false;
-  if (f.photos === "blurred" && !isLocked(p)) return false;
+  if (f.ethnicities.length && !f.ethnicities.includes(ETHNICITY_OF[p.origins] ?? '')) return false;
+  if (f.nationalities.length && !f.nationalities.includes(p.origins)) return false;
+  if (f.photos === 'clear' && isLocked(p)) return false;
+  if (f.photos === 'blurred' && !isLocked(p)) return false;
   if (f.completeBio && p.bio.trim().length < 40) return false;
   if (f.verified && !p.verified) return false;
-  if (f.active !== "any" && lastActiveHours(p) > ACTIVE_HOURS[f.active])
-    return false;
+  if (f.active !== 'any' && lastActiveHours(p) > ACTIVE_HOURS[f.active]) return false;
   if (f.goldOnly && !isGold(p)) return false;
   if (f.justJoined && !isJustJoined(p)) return false;
   return true;
@@ -304,23 +257,16 @@ export const AGE_STRETCH = 5;
 
 export type FilterResult = {
   list: Profile[]; // in deck order, with adjusted details
-  notice: "none" | "age" | "close"; // banner to show
+  notice: 'none' | 'age' | 'close'; // banner to show
 };
 
 const cache = new Map<string, FilterResult>();
 
 // pool = the full session order for the gender shown (buildDeck with nothing hidden).
-export function applyFilters(
-  pool: Profile[],
-  f: Filters,
-  show: ProfileGender,
-): FilterResult {
-  if (pool.length === 0) return { list: [], notice: "none" }; // still loading: never cache this
+export function applyFilters(pool: Profile[], f: Filters, show: ProfileGender): FilterResult {
+  if (pool.length === 0) return { list: [], notice: 'none' }; // still loading: never cache this
   // the pool's first ids tell one shuffle from another
-  const key = `${show}|${pool.length}|${pool
-    .slice(0, 8)
-    .map((p) => p.id)
-    .join(",")}|${JSON.stringify(f)}`;
+  const key = `${show}|${pool.length}|${pool.slice(0, 8).map((p) => p.id).join(',')}|${JSON.stringify(f)}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -328,12 +274,8 @@ export function applyFilters(
   const base = pool.map(withOverrides);
 
   const run = (min: number, max: number, relaxOthers: boolean) => {
-    const hard = base.filter(
-      (p) => inAge(p, min, max) && passesHard(p, f, relaxOthers),
-    );
-    const strictIds = new Set(
-      hard.filter((p) => passesSoft(p, f)).map((p) => p.id),
-    );
+    const hard = base.filter((p) => inAge(p, min, max) && passesHard(p, f, relaxOthers));
+    const strictIds = new Set(hard.filter((p) => passesSoft(p, f)).map((p) => p.id));
     let missing = MIN_RESULTS - strictIds.size;
     let adjusted = 0;
     const list = hard
@@ -352,32 +294,28 @@ export function applyFilters(
 
   const ageSet = f.ageMin !== AGE_MIN || f.ageMax !== AGE_MAX;
   const wideMin = Math.max(AGE_MIN, f.ageMin - AGE_STRETCH);
-  const wideMax =
-    f.ageMax >= AGE_MAX ? AGE_MAX : Math.min(AGE_MAX, f.ageMax + AGE_STRETCH);
-  let notice: FilterResult["notice"] = "none";
+  const wideMax = f.ageMax >= AGE_MAX ? AGE_MAX : Math.min(AGE_MAX, f.ageMax + AGE_STRETCH);
+  let notice: FilterResult['notice'] = 'none';
   let r = run(f.ageMin, f.ageMax, false);
   if (r.list.length < MIN_RESULTS && ageSet) {
     const wider = run(wideMin, wideMax, false);
     if (wider.list.length > r.list.length) {
       r = wider;
-      notice = "age";
+      notice = 'age';
     }
   }
   if (r.list.length === 0) {
     r = run(wideMin, wideMax, true);
-    notice = "close";
+    notice = 'close';
   }
 
   if (__DEV__) {
     console.log(
-      `[filters] ${r.list.length} profiles in ${Date.now() - t0}ms · ${r.strict} match all · ${r.adjusted} adjusted · notice=${notice} · age ${ageLabel(f.ageMin, f.ageMax)} · distance=${f.distance ?? "any"}`,
+      `[filters] ${r.list.length} profiles in ${Date.now() - t0}ms · ${r.strict} match all · ${r.adjusted} adjusted · notice=${notice} · age ${ageLabel(f.ageMin, f.ageMax)} · distance=${f.distance ?? 'any'}`,
     );
   }
   // Rule 9.4: every profile gets its distance inside the chosen maximum (new objects, so the cards update).
-  const result = {
-    list: r.list.map((p) => ({ ...p, km: distanceKm(p.id, f.distance) })),
-    notice,
-  };
+  const result = { list: r.list.map((p) => ({ ...p, km: distanceKm(p.id, f.distance) })), notice };
   cache.set(key, result);
   return result;
 }
@@ -393,7 +331,6 @@ export function widerAge(f: Filters): Filters {
   return {
     ...f,
     ageMin: Math.max(AGE_MIN, f.ageMin - AGE_STRETCH),
-    ageMax:
-      f.ageMax >= AGE_MAX ? AGE_MAX : Math.min(AGE_MAX, f.ageMax + AGE_STRETCH),
+    ageMax: f.ageMax >= AGE_MAX ? AGE_MAX : Math.min(AGE_MAX, f.ageMax + AGE_STRETCH),
   };
 }

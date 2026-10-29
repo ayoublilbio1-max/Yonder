@@ -1,39 +1,30 @@
-import { getLocales } from "expo-localization";
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
-import { AppButton } from "../components/AppButton";
-import { AppText } from "../components/AppText";
-import { useToast } from "../components/Toast";
-import { fonts } from "../constants/fonts";
-import { useTheme } from "../theme/ThemeProvider";
-import { ChipGroup } from "./ChipGroup";
-import { COUNTRIES_BY_NATIONALITY, flagOf } from "./countries";
-import {
-  INTEREST_GROUPS,
-  MAX_INTERESTS,
-  MAX_TRAITS,
-  PERSONALITY_TRAITS,
-} from "./interests";
-import { useOnboarding } from "./OnboardingProvider";
-import { OptionList } from "./OptionList";
-import { BIO_MAX, EDUCATION_OPTIONS, PROFESSIONS } from "./options";
-import { SearchList, type SearchItem } from "./SearchList";
-import { StepLayout } from "./StepLayout";
-import { useAdvance } from "./useAdvance";
+import { getLocales } from 'expo-localization';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
+import { useToast } from '../components/Toast';
+import { fonts } from '../constants/fonts';
+import { useTheme } from '../theme/ThemeProvider';
+import { ChipGroup } from './ChipGroup';
+import { COUNTRIES_BY_NATIONALITY, flagOf } from './countries';
+import { INTEREST_GROUPS, MAX_INTERESTS, MAX_TRAITS, PERSONALITY_TRAITS } from './interests';
+import { useOnboarding } from './OnboardingProvider';
+import { BIO_MAX, EDUCATION_OPTIONS, PROFESSIONS } from './options';
+import { OptionList } from './OptionList';
+import { SearchList, type SearchItem } from './SearchList';
+import { StepLayout } from './StepLayout';
+import { useAdvance } from './useAdvance';
+import { tr } from '../i18n/i18n';
 
 // Part 2b questions (photos and phone are in their own files).
 
 function SkipButton({ onPress }: { onPress: () => void }) {
   const colors = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      hitSlop={6}
-      style={styles.skip}
-    >
+    <Pressable onPress={onPress} accessibilityRole="button" hitSlop={6} style={styles.skip}>
       <AppText variant="body" weight="semibold" color={colors.textMuted}>
-        Skip
+        {tr('Skip')}
       </AppText>
     </Pressable>
   );
@@ -41,14 +32,11 @@ function SkipButton({ onPress }: { onPress: () => void }) {
 
 // ───────────────────────── profession ─────────────────────────
 
-const PROFESSION_ITEMS: SearchItem[] = PROFESSIONS.map((p) => ({
-  key: p,
-  label: p,
-}));
+const PROFESSION_ITEMS: SearchItem[] = PROFESSIONS.map((p) => ({ key: p, label: p }));
 
 export function ProfessionStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance("profession");
+  const advance = useAdvance('profession');
 
   const choose = (label: string) => {
     update({ profession: label });
@@ -56,18 +44,14 @@ export function ProfessionStep() {
   };
 
   return (
-    <StepLayout
-      stepId="profession"
-      title="What’s your profession?"
-      scroll={false}
-    >
+    <StepLayout stepId="profession" title={tr('What’s your profession?')} scroll={false}>
       <SearchList
         items={PROFESSION_ITEMS}
         selected={draft.profession ? [draft.profession] : []}
         onPress={choose}
         onCustom={(text) => choose(text.slice(0, 40))}
-        customHint="Not in the list? Tap here and write your own."
-        placeholder="Search or write your job"
+        customHint={tr('Not in the list? Tap here and write your own.')}
+        placeholder={tr('Search or write your job')}
       />
     </StepLayout>
   );
@@ -77,9 +61,9 @@ export function ProfessionStep() {
 
 export function EducationStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance("education");
+  const advance = useAdvance('education');
   return (
-    <StepLayout stepId="education" title="What’s your education level?">
+    <StepLayout stepId="education" title={tr('What’s your education level?')}>
       <OptionList
         options={EDUCATION_OPTIONS}
         selected={draft.education}
@@ -104,7 +88,7 @@ const NATIONALITY_ITEMS: SearchItem[] = COUNTRIES_BY_NATIONALITY.map((c) => ({
 export function NationalityStep() {
   const toast = useToast();
   const { draft, update } = useOnboarding();
-  const advance = useAdvance("nationality");
+  const advance = useAdvance('nationality');
   const [selected, setSelected] = useState<string[]>(draft.nationalities ?? []);
 
   // The phone's region (e.g. MA on a Moroccan phone) is suggested first.
@@ -119,7 +103,7 @@ export function NationalityStep() {
       return;
     }
     if (selected.length >= MAX_NATIONALITIES) {
-      toast.show(`You can choose up to ${MAX_NATIONALITIES} nationalities.`);
+      toast.show(tr('You can choose up to {MAX_NATIONALITIES} nationalities.', { MAX_NATIONALITIES }));
       return;
     }
     setSelected([...selected, code]);
@@ -128,12 +112,12 @@ export function NationalityStep() {
   return (
     <StepLayout
       stepId="nationality"
-      title="What’s your nationality?"
-      subtitle="Choose up to two countries you’re a citizen of."
+      title={tr('What’s your nationality?')}
+      subtitle={tr('Choose up to two countries you’re a citizen of.')}
       scroll={false}
       footer={
         <AppButton
-          label={selected.length ? `Confirm (${selected.length})` : "Confirm"}
+          label={selected.length ? tr('Confirm ({length})', { length: selected.length }) : tr('Confirm')}
           disabled={selected.length === 0}
           onPress={() => {
             update({ nationalities: selected });
@@ -148,7 +132,7 @@ export function NationalityStep() {
         onPress={toggle}
         multi
         suggested={suggested}
-        placeholder="Search nationalities"
+        placeholder={tr('Search nationalities')}
       />
     </StepLayout>
   );
@@ -156,11 +140,7 @@ export function NationalityStep() {
 
 // ───────────────────────── interests / personality ─────────────────────────
 
-function useChipSelection(
-  initial: string[] | undefined,
-  max: number,
-  noun: string,
-) {
+function useChipSelection(initial: string[] | undefined, max: number, noun: string) {
   const toast = useToast();
   const [selected, setSelected] = useState<string[]>(initial ?? []);
   const toggle = (key: string) => {
@@ -169,7 +149,7 @@ function useChipSelection(
       return;
     }
     if (selected.length >= max) {
-      toast.show(`You can choose up to ${max} ${noun}.`);
+      toast.show(noun === 'interests' ? tr('You can choose up to {max} interests.', { max }) : tr('You can choose up to {max} traits.', { max }));
       return;
     }
     setSelected([...selected, key]);
@@ -179,22 +159,18 @@ function useChipSelection(
 
 export function InterestsStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance("interests");
-  const { selected, toggle } = useChipSelection(
-    draft.interests,
-    MAX_INTERESTS,
-    "interests",
-  );
+  const advance = useAdvance('interests');
+  const { selected, toggle } = useChipSelection(draft.interests, MAX_INTERESTS, 'interests');
 
   return (
     <StepLayout
       stepId="interests"
-      title="What are your interests?"
-      subtitle={`Choose up to ${MAX_INTERESTS} to make your profile stand out.`}
+      title={tr('What are your interests?')}
+      subtitle={tr('Choose up to {MAX_INTERESTS} to make your profile stand out.', { MAX_INTERESTS })}
       footer={
         <>
           <AppButton
-            label={`Select (${selected.length}/${MAX_INTERESTS})`}
+            label={tr('Select ({length}/{MAX_INTERESTS})', { length: selected.length, MAX_INTERESTS })}
             disabled={selected.length === 0}
             onPress={() => {
               update({ interests: selected });
@@ -213,7 +189,7 @@ export function InterestsStep() {
       <View style={styles.groups}>
         {INTEREST_GROUPS.map((g) => (
           <View key={g.title} style={styles.group}>
-            <AppText variant="heading">{g.title}</AppText>
+            <AppText variant="heading">{tr(g.title)}</AppText>
             <ChipGroup chips={g.chips} selected={selected} onToggle={toggle} />
           </View>
         ))}
@@ -224,22 +200,18 @@ export function InterestsStep() {
 
 export function PersonalityStep() {
   const { draft, update } = useOnboarding();
-  const advance = useAdvance("personality");
-  const { selected, toggle } = useChipSelection(
-    draft.personality,
-    MAX_TRAITS,
-    "traits",
-  );
+  const advance = useAdvance('personality');
+  const { selected, toggle } = useChipSelection(draft.personality, MAX_TRAITS, 'traits');
 
   return (
     <StepLayout
       stepId="personality"
-      title="How would you describe your personality?"
-      subtitle={`Choose up to ${MAX_TRAITS} traits.`}
+      title={tr('How would you describe your personality?')}
+      subtitle={tr('Choose up to {MAX_TRAITS} traits.', { MAX_TRAITS })}
       footer={
         <>
           <AppButton
-            label={`Select (${selected.length}/${MAX_TRAITS})`}
+            label={tr('Select ({length}/{MAX_TRAITS})', { length: selected.length, MAX_TRAITS })}
             disabled={selected.length === 0}
             onPress={() => {
               update({ personality: selected });
@@ -255,11 +227,7 @@ export function PersonalityStep() {
         </>
       }
     >
-      <ChipGroup
-        chips={PERSONALITY_TRAITS}
-        selected={selected}
-        onToggle={toggle}
-      />
+      <ChipGroup chips={PERSONALITY_TRAITS} selected={selected} onToggle={toggle} />
     </StepLayout>
   );
 }
@@ -269,19 +237,19 @@ export function PersonalityStep() {
 export function BioStep() {
   const colors = useTheme();
   const { draft, update } = useOnboarding();
-  const advance = useAdvance("bio");
-  const [bio, setBio] = useState(draft.bio ?? "");
+  const advance = useAdvance('bio');
+  const [bio, setBio] = useState(draft.bio ?? '');
   const trimmed = bio.trim();
 
   return (
     <StepLayout
       stepId="bio"
-      title="Write a short bio"
-      subtitle="A few words about you, what you love and what you’re looking for."
+      title={tr('Write a short bio')}
+      subtitle={tr('A few words about you, what you love and what you’re looking for.')}
       footer={
         <>
           <AppButton
-            label="Add bio"
+            label={tr('Add bio')}
             disabled={trimmed.length < 10}
             onPress={() => {
               update({ bio: trimmed });
@@ -290,39 +258,29 @@ export function BioStep() {
           />
           <SkipButton
             onPress={() => {
-              update({ bio: "" });
+              update({ bio: '' });
               advance(0);
             }}
           />
         </>
       }
     >
-      <View
-        style={[
-          styles.bioBox,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
+      <View style={[styles.bioBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <TextInput
           value={bio}
           onChangeText={(t) => setBio(t.slice(0, BIO_MAX))}
-          placeholder="e.g. Coffee lover, weekend hiker, always planning the next trip."
+          placeholder={tr('e.g. Coffee lover, weekend hiker, always planning the next trip.')}
           placeholderTextColor={colors.textSubtle}
           selectionColor={colors.primary}
           cursorColor={colors.primary}
           multiline
           textAlignVertical="top"
-          style={[
-            styles.bioInput,
-            { color: colors.text, fontFamily: fonts.regular },
-          ]}
+          style={[styles.bioInput, { color: colors.text, fontFamily: fonts.regular }]}
         />
       </View>
       <AppText variant="caption" muted align="right" style={styles.counter}>
         {bio.length}/{BIO_MAX}
-        {trimmed.length > 0 && trimmed.length < 10
-          ? " · at least 10 characters"
-          : ""}
+        {trimmed.length > 0 && trimmed.length < 10 ? tr(' · at least 10 characters') : ''}
       </AppText>
     </StepLayout>
   );
@@ -330,7 +288,7 @@ export function BioStep() {
 
 const styles = StyleSheet.create({
   skip: {
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 8,
   },
   groups: {

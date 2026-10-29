@@ -1,20 +1,21 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import { playSound } from "../sound/sounds";
-import { formatUsd, useWallet } from "../store/WalletProvider";
-import { useTheme } from "../theme/ThemeProvider";
-import { AppButton } from "./AppButton";
-import { AppText } from "./AppText";
-import { Sheet } from "./Sheet";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { playSound } from '../sound/sounds';
+import { formatUsd, useWallet } from '../store/WalletProvider';
+import { useTheme } from '../theme/ThemeProvider';
+import { AppButton } from './AppButton';
+import { AppText } from './AppText';
+import { Sheet } from './Sheet';
+import { tr } from '../i18n/i18n';
 
 // Simulated checkout used by every demo purchase (compliments, boosts, Gold).
 // No card number is ever asked for: it uses a ready-made demo card, and nothing is charged.
 
 export type CheckoutItem = { title: string; detail: string; total: number };
 
-type Method = "card" | "gpay";
-type Stage = "review" | "paying" | "done";
+type Method = 'card' | 'gpay';
+type Stage = 'review' | 'paying' | 'done';
 
 type Props = {
   item: CheckoutItem | null; // null = closed
@@ -24,97 +25,75 @@ type Props = {
 
 export function Checkout({ item, onClose, onPaid }: Props) {
   const colors = useTheme();
-  const [method, setMethod] = useState<Method>("card");
-  const [stage, setStage] = useState<Stage>("review");
+  const [method, setMethod] = useState<Method>('card');
+  const [stage, setStage] = useState<Stage>('review');
   const { recordPurchase } = useWallet();
 
   const close = () => {
-    if (stage === "paying") return;
-    setStage("review");
+    if (stage === 'paying') return;
+    setStage('review');
     onClose();
   };
 
   const pay = () => {
     if (!item) return;
-    setStage("paying");
-    if (__DEV__)
-      console.log(
-        `[checkout] paying ${item.title} · ${item.total} · ${method} (demo)`,
-      );
+    setStage('paying');
+    if (__DEV__) console.log(`[checkout] paying ${item.title} · ${item.total} · ${method} (demo)`);
     setTimeout(() => {
-      playSound("purchase");
-      setStage("done");
+      playSound('purchase');
+      setStage('done');
       recordPurchase(item.title, item.total);
       onPaid(item);
     }, 1400);
   };
 
-  const methods: {
-    key: Method;
-    icon: "card-outline" | "logo-google";
-    title: string;
-    detail: string;
-  }[] = [
-    {
-      key: "card",
-      icon: "card-outline",
-      title: "Visa •••• 4242",
-      detail: "Demo card",
-    },
-    { key: "gpay", icon: "logo-google", title: "Google Pay", detail: "Demo" },
+  const methods: { key: Method; icon: 'card-outline' | 'logo-google'; title: string; detail: string }[] = [
+    { key: 'card', icon: 'card-outline', title: 'Visa •••• 4242', detail: 'Demo card' },
+    { key: 'gpay', icon: 'logo-google', title: 'Google Pay', detail: 'Demo' },
   ];
 
   return (
     <Sheet visible={item !== null} onClose={close}>
-      {item && stage === "done" ? (
+      {item && stage === 'done' ? (
         <View style={styles.done}>
-          <View
-            style={[styles.doneIcon, { backgroundColor: colors.boostSoft }]}
-          >
+          <View style={[styles.doneIcon, { backgroundColor: colors.boostSoft }]}>
             <Ionicons name="checkmark" size={40} color={colors.boost} />
           </View>
           <AppText variant="title" align="center">
-            Payment successful
+            {tr('Payment successful')}
           </AppText>
           <AppText variant="body" muted align="center">
-            {item.title} added to your account.
+            {tr('{title} added to your account.', { title: item.title })}
           </AppText>
           <AppText variant="caption" muted align="center">
-            This was a demo. No money was charged.
+            {tr('This was a demo. No money was charged.')}
           </AppText>
-          <AppButton label="Done" onPress={close} style={styles.full} />
+          <AppButton label={tr('Done')} onPress={close} style={styles.full} />
         </View>
       ) : item ? (
         <>
           <AppText variant="heading" align="center">
-            Checkout
+            {tr('Checkout')}
           </AppText>
 
-          <View
-            style={[
-              styles.box,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.row}>
               <View style={styles.flex}>
                 <AppText variant="body" weight="semibold">
-                  {item.title}
+                  {tr(item.title)}
                 </AppText>
                 <AppText variant="caption" muted>
-                  {item.detail}
+                  {tr(item.detail)}
                 </AppText>
               </View>
               <AppText variant="body" weight="semibold">
                 {formatUsd(item.total)}
               </AppText>
             </View>
-            <View
-              style={[styles.divider, { backgroundColor: colors.border }]}
-            />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.row}>
               <AppText variant="body" weight="bold" style={styles.flex}>
-                Total
+                {tr('Total')}
               </AppText>
               <AppText variant="body" weight="bold">
                 {formatUsd(item.total)}
@@ -123,14 +102,9 @@ export function Checkout({ item, onClose, onPaid }: Props) {
           </View>
 
           <AppText variant="label" muted>
-            PAYMENT METHOD
+            {tr('PAYMENT METHOD')}
           </AppText>
-          <View
-            style={[
-              styles.box,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {methods.map((m, i) => {
               const selected = method === m.key;
               return (
@@ -144,14 +118,14 @@ export function Checkout({ item, onClose, onPaid }: Props) {
                   <Ionicons name={m.icon} size={22} color={colors.text} />
                   <View style={styles.flex}>
                     <AppText variant="body" weight="medium">
-                      {m.title}
+                      {tr(m.title)}
                     </AppText>
                     <AppText variant="caption" muted>
-                      {m.detail}
+                      {tr(m.detail)}
                     </AppText>
                   </View>
                   <Ionicons
-                    name={selected ? "radio-button-on" : "radio-button-off"}
+                    name={selected ? 'radio-button-on' : 'radio-button-off'}
                     size={22}
                     color={selected ? colors.primary : colors.textSubtle}
                   />
@@ -160,21 +134,17 @@ export function Checkout({ item, onClose, onPaid }: Props) {
             })}
           </View>
 
-          {stage === "paying" ? (
+          {stage === 'paying' ? (
             <View style={[styles.paying, { backgroundColor: colors.primary }]}>
               <ActivityIndicator color={colors.onPrimary} />
             </View>
           ) : (
-            <AppButton label={`Pay ${formatUsd(item.total)}`} onPress={pay} />
+            <AppButton label={tr('Pay {v}', { v: formatUsd(item.total) })} onPress={pay} />
           )}
           <View style={styles.demoNote}>
-            <Ionicons
-              name="lock-closed-outline"
-              size={14}
-              color={colors.textMuted}
-            />
+            <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
             <AppText variant="caption" muted>
-              Demo checkout — no real payment is made.
+              {tr('Demo checkout — no real payment is made.')}
             </AppText>
           </View>
         </>
@@ -188,7 +158,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   full: {
-    alignSelf: "stretch",
+    alignSelf: 'stretch',
     marginTop: 8,
   },
   box: {
@@ -198,8 +168,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   methodGap: {
@@ -211,17 +181,17 @@ const styles = StyleSheet.create({
   paying: {
     minHeight: 52,
     borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   demoNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
   },
   done: {
-    alignItems: "center",
+    alignItems: 'center',
     gap: 8,
     paddingVertical: 8,
   },
@@ -229,8 +199,8 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 6,
   },
 });

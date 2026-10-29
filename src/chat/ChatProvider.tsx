@@ -1,25 +1,17 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { useToast } from "../components/Toast";
-import { useSwipe } from "../deck/SwipeProvider";
-import { withOverrides } from "../filters/filters";
-import { notify } from "../notify/notify";
-import { getNotifyPrefs } from "../notify/prefs";
-import { mediaOf, profileById } from "../profiles/data";
-import { isLocked } from "../profiles/extras";
-import { sessionRandom } from "../profiles/session";
-import type { Profile } from "../profiles/types";
-import { recoverCameraPhoto, timerLabel, type PhotoTimer } from "./media";
-import { mediaReplyFor, openerFor, replyFor, writesFirst } from "./replies";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useToast } from '../components/Toast';
+import { useSwipe } from '../deck/SwipeProvider';
+import { withOverrides } from '../filters/filters';
+import { notify } from '../notify/notify';
+import { getNotifyPrefs } from '../notify/prefs';
+import { mediaOf, profileById } from '../profiles/data';
+import { sessionRandom } from '../profiles/session';
+import { isLocked } from '../profiles/extras';
+import type { Profile } from '../profiles/types';
+import { recoverCameraPhoto, timerLabel, type PhotoTimer } from './media';
+import { mediaReplyFor, openerFor, replyFor, writesFirst } from './replies';
+import { locale, tr } from '../i18n/i18n';
 
 // Chats with your matches, saved on the phone per account (demo: the other side is simulated).
 // - About half of the matches write first, a few seconds after the match.
@@ -28,7 +20,7 @@ import { mediaReplyFor, openerFor, replyFor, writesFirst } from "./replies";
 //   after you tap "Request photos". Once shared, they stay shared.
 // Mount it inside SwipeProvider (it reads your matches and compliments).
 
-export type MediaKind = "photo" | "video" | "audio";
+export type MediaKind = 'photo' | 'video' | 'audio';
 
 export type ChatMedia = {
   kind: MediaKind;
@@ -42,7 +34,7 @@ export type ChatMedia = {
 
 export type ChatMessage = {
   id: string;
-  from: "me" | "them" | "system";
+  from: 'me' | 'them' | 'system';
   text: string; // for media: a short label ("Photo", "Voice message")
   at: number; // ms
   media?: ChatMedia;
@@ -59,14 +51,7 @@ export type ChatThread = {
   timedSent?: boolean; // they already sent you their timed photo
 };
 
-const NEW_THREAD: ChatThread = {
-  messages: [],
-  unread: 0,
-  revealed: false,
-  requested: false,
-  replies: 0,
-  sent: 0,
-};
+const NEW_THREAD: ChatThread = { messages: [], unread: 0, revealed: false, requested: false, replies: 0, sent: 0 };
 const AUTO_REVEAL_AFTER = 3; // your messages before a locked profile shares photos
 const chatsKey = (userId: string) => `yonder.chats.${userId}`;
 let msgSeq = 0;
@@ -88,13 +73,7 @@ type ChatContextValue = {
 
 const ChatContext = createContext<ChatContextValue | null>(null);
 
-export function ChatProvider({
-  userId,
-  children,
-}: {
-  userId: string;
-  children: ReactNode;
-}) {
+export function ChatProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const { ready: swipeReady, saved, me, unmatch } = useSwipe();
   const toast = useToast();
   const [ready, setReady] = useState(false);
@@ -111,12 +90,9 @@ export function ChatProvider({
     AsyncStorage.getItem(chatsKey(userId))
       .then((raw) => {
         if (!alive) return;
-        const loaded = raw
-          ? (JSON.parse(raw) as Record<string, ChatThread>)
-          : {};
+        const loaded = raw ? (JSON.parse(raw) as Record<string, ChatThread>) : {};
         setThreads(loaded);
-        if (__DEV__)
-          console.log(`[chat] loaded · ${Object.keys(loaded).length} chats`);
+        if (__DEV__) console.log(`[chat] loaded · ${Object.keys(loaded).length} chats`);
       })
       .catch(() => {})
       .finally(() => {
@@ -133,9 +109,7 @@ export function ChatProvider({
 
   useEffect(() => {
     if (!ready) return;
-    AsyncStorage.setItem(chatsKey(userId), JSON.stringify(threads)).catch(
-      () => {},
-    );
+    AsyncStorage.setItem(chatsKey(userId), JSON.stringify(threads)).catch(() => {});
   }, [threads, ready, userId]);
 
   useEffect(() => {
@@ -165,36 +139,26 @@ export function ChatProvider({
   const push = useCallback(
     (
       id: string,
-      from: ChatMessage["from"],
+      from: ChatMessage['from'],
       text: string,
       patch?: (t: ChatThread) => Partial<ChatThread>,
       media?: ChatMedia,
     ) => {
-      if (removed.current.has(id)) return;
-      if (from === "them" && activeRef.current !== id)
-        notifyMessage(id, text, media);
-      setThreads((prev) => {
-        const t = prev[id] ?? NEW_THREAD;
-        const incoming = from === "them" && activeRef.current !== id;
-        return {
-          ...prev,
-          [id]: {
-            ...t,
-            ...patch?.(t),
-            messages: [
-              ...t.messages,
-              {
-                id: newId(),
-                from,
-                text,
-                at: Date.now(),
-                ...(media ? { media } : {}),
-              },
-            ],
-            unread: incoming ? t.unread + 1 : t.unread,
-          },
-        };
-      });
+    if (removed.current.has(id)) return;
+    if (from === 'them' && activeRef.current !== id) notifyMessage(id, text, media);
+    setThreads((prev) => {
+      const t = prev[id] ?? NEW_THREAD;
+      const incoming = from === 'them' && activeRef.current !== id;
+      return {
+        ...prev,
+        [id]: {
+          ...t,
+          ...patch?.(t),
+          messages: [...t.messages, { id: newId(), from, text, at: Date.now(), ...(media ? { media } : {}) }],
+          unread: incoming ? t.unread + 1 : t.unread,
+        },
+      };
+    });
     },
     [],
   );
@@ -203,10 +167,8 @@ export function ChatProvider({
     (id: string) => {
       const p = profileById(id);
       if (!p || threadsRef.current[id]?.revealed) return; // shared only once
-      const her = p.gender === "male" ? "his" : "her";
-      push(id, "system", `${p.name} shared ${her} photos with you 🔓`, () => ({
-        revealed: true,
-      }));
+      const text = p.gender === 'male' ? tr('{name} shared his photos with you 🔓', { name: p.name }) : tr('{name} shared her photos with you 🔓', { name: p.name });
+      push(id, 'system', text, () => ({ revealed: true }));
       if (__DEV__) console.log(`[chat] ${id} photos shared`);
     },
     [push],
@@ -223,55 +185,34 @@ export function ChatProvider({
       const compliment = saved.compliments[id];
       later(0, () =>
         setThreads((prev) =>
-          prev[id]
-            ? prev
-            : {
-                ...prev,
-                [id]: {
-                  ...NEW_THREAD,
-                  messages: compliment
-                    ? [{ id: newId(), from: "me", text: compliment, at }]
-                    : [],
-                  sent: compliment ? 1 : 0,
-                },
+        prev[id]
+          ? prev
+          : {
+              ...prev,
+              [id]: {
+                ...NEW_THREAD,
+                messages: compliment ? [{ id: newId(), from: 'me', text: compliment, at }] : [],
+                sent: compliment ? 1 : 0,
               },
+            },
         ),
       );
       if (writesFirst(p)) {
         const recent = Date.now() - at < 60_000;
-        later(recent ? 6000 : 300, () =>
-          push(id, "them", openerFor(p, me.firstName)),
-        );
+        later(recent ? 6000 : 300, () => push(id, 'them', openerFor(p, me.firstName)));
         if (__DEV__) console.log(`[chat] ${id} will write first`);
       }
     });
-  }, [
-    ready,
-    swipeReady,
-    saved.matches,
-    saved.compliments,
-    threads,
-    later,
-    push,
-    me.firstName,
-  ]);
+  }, [ready, swipeReady, saved.matches, saved.compliments, threads, later, push, me.firstName]);
 
   // They ❤️ your latest message (simulated).
   const heartMine = useCallback((id: string) => {
     setThreads((prev) => {
       const t = prev[id];
       if (!t) return prev;
-      const last = [...t.messages].reverse().find((m) => m.from === "me");
+      const last = [...t.messages].reverse().find((m) => m.from === 'me');
       if (!last || last.heart) return prev;
-      return {
-        ...prev,
-        [id]: {
-          ...t,
-          messages: t.messages.map((m) =>
-            m.id === last.id ? { ...m, heart: true } : m,
-          ),
-        },
-      };
+      return { ...prev, [id]: { ...t, messages: t.messages.map((m) => (m.id === last.id ? { ...m, heart: true } : m)) } };
     });
     if (__DEV__) console.log(`[chat] ${id} ❤️ your message (simulated)`);
   }, []);
@@ -281,7 +222,7 @@ export function ChatProvider({
       const p = profileById(id);
       const clean = text.trim();
       if (!p || !clean) return;
-      push(id, "me", clean, (t) => ({ sent: t.sent + 1 }));
+      push(id, 'me', clean, (t) => ({ sent: t.sent + 1 }));
       if (__DEV__) console.log(`[chat] → ${id} (${clean.length} chars)`);
 
       const wait = 1800 + Math.round(Math.random() * 1600); // they read, then type
@@ -290,33 +231,27 @@ export function ChatProvider({
         const cur = threadsRef.current[id] ?? NEW_THREAD;
         const reply = replyFor(p, cur.replies, clean, me.firstName);
         setTyping((prev) => ({ ...prev, [id]: false }));
-        push(id, "them", reply, (t) => ({ replies: t.replies + 1 }));
+        push(id, 'them', reply, (t) => ({ replies: t.replies + 1 }));
         if (__DEV__) console.log(`[chat] ← ${id} reply #${cur.replies + 1}`);
         // Sometimes they ❤️ the message you just sent (about 1 in 3).
-        if (sessionRandom(`${id}:heart:${cur.replies}`) < 0.35)
-          later(900, () => heartMine(id));
-        if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
-          later(1500, () => reveal(id));
+        if (sessionRandom(`${id}:heart:${cur.replies}`) < 0.35) later(900, () => heartMine(id));
+        if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER) later(1500, () => reveal(id));
         // Every match sends you one timed photo, from their 3rd reply on (never while their photos are private).
         const canShare = !isLocked(p) || cur.revealed;
-        const photos = mediaOf(p).filter((m) => m.type === "photo");
+        const photos = mediaOf(p).filter((m) => m.type === 'photo');
         const photo = photos[1] ?? photos[0];
         if (cur.replies >= 2 && !cur.timedSent && canShare && photo) {
-          const timer: PhotoTimer =
-            sessionRandom(`${p.id}:timer`) < 0.5 ? "once" : 5;
+          const timer: PhotoTimer = sessionRandom(`${p.id}:timer`) < 0.5 ? 'once' : 5;
           later(2500, () =>
-            push(id, "them", timerLabel(timer), () => ({ timedSent: true }), {
-              kind: "photo",
+            push(id, 'them', timerLabel(timer), () => ({ timedSent: true }), {
+              kind: 'photo',
               uri: photo.uri,
               timer,
               width: 3,
               height: 4,
             }),
           );
-          if (__DEV__)
-            console.log(
-              `[chat] ${id} will send a timed photo (${timerLabel(timer)})`,
-            );
+          if (__DEV__) console.log(`[chat] ${id} will send a timed photo (${timerLabel(timer)})`);
         }
       });
     },
@@ -329,12 +264,7 @@ export function ChatProvider({
       if (!t) return prev;
       return {
         ...prev,
-        [id]: {
-          ...t,
-          messages: t.messages.map((m) =>
-            m.id === messageId ? { ...m, heart: !m.heart } : m,
-          ),
-        },
+        [id]: { ...t, messages: t.messages.map((m) => (m.id === messageId ? { ...m, heart: !m.heart } : m)) },
       };
     });
     if (__DEV__) console.log(`[chat] ${id} ❤️ toggled on ${messageId}`);
@@ -349,11 +279,7 @@ export function ChatProvider({
         ...prev,
         [id]: {
           ...t,
-          messages: t.messages.map((m) =>
-            m.id === messageId && m.media
-              ? { ...m, media: { ...m.media, opened: true } }
-              : m,
-          ),
+          messages: t.messages.map((m) => (m.id === messageId && m.media ? { ...m, media: { ...m.media, opened: true } } : m)),
         },
       };
     });
@@ -364,18 +290,9 @@ export function ChatProvider({
     (id: string, media: ChatMedia) => {
       const p = profileById(id);
       if (!p) return;
-      const label = media.timer
-        ? timerLabel(media.timer)
-        : media.kind === "photo"
-          ? "Photo"
-          : media.kind === "video"
-            ? "Video"
-            : "Voice message";
-      push(id, "me", label, (t) => ({ sent: t.sent + 1 }), media);
-      if (__DEV__)
-        console.log(
-          `[chat] → ${id} ${media.kind}${media.durationMs ? ` ${Math.round(media.durationMs / 1000)}s` : ""}`,
-        );
+      const label = media.timer ? timerLabel(media.timer) : media.kind === 'photo' ? tr('Photo') : media.kind === 'video' ? tr('Video') : tr('Voice message');
+      push(id, 'me', label, (t) => ({ sent: t.sent + 1 }), media);
+      if (__DEV__) console.log(`[chat] → ${id} ${media.kind}${media.durationMs ? ` ${Math.round(media.durationMs / 1000)}s` : ''}`);
 
       const wait = 2200 + Math.round(Math.random() * 1600);
       later(900, () => setTyping((prev) => ({ ...prev, [id]: true })));
@@ -383,20 +300,15 @@ export function ChatProvider({
         const cur = threadsRef.current[id] ?? NEW_THREAD;
         setTyping((prev) => ({ ...prev, [id]: false }));
         // A timed photo: they open it (it can't be seen again), then reply.
-        const sent = [...cur.messages]
-          .reverse()
-          .find((m) => m.from === "me" && m.media?.timer && !m.media.opened);
+        const sent = [...cur.messages].reverse().find((m) => m.from === 'me' && m.media?.timer && !m.media.opened);
         if (media.timer && sent) markOpenedNow(id, sent.id);
         push(
           id,
-          "them",
-          media.timer
-            ? "Opened your photo 👀 cute!"
-            : mediaReplyFor(p, media.kind, cur.replies),
+          'them',
+          media.timer ? 'Opened your photo 👀 cute!' : mediaReplyFor(p, media.kind, cur.replies),
           (t) => ({ replies: t.replies + 1 }),
         );
-        if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
-          later(1500, () => reveal(id));
+        if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER) later(1500, () => reveal(id));
       });
     },
     [push, later, reveal, markOpenedNow],
@@ -410,8 +322,8 @@ export function ChatProvider({
     recoverCameraPhoto().then((r) => {
       if (!r || !saved.matches[r.chatId]) return;
       sendMedia(r.chatId, r.media);
-      const name = profileById(r.chatId)?.name ?? "";
-      toast.show(`Your photo was sent to ${name}`);
+      const name = profileById(r.chatId)?.name ?? '';
+      toast.show(tr('Your photo was sent to {name}', { name }));
     });
   }, [ready, swipeReady, saved.matches, sendMedia, toast]);
 
@@ -420,10 +332,8 @@ export function ChatProvider({
       const p = profileById(id);
       const t = threadsRef.current[id];
       if (!p || t?.revealed || t?.requested) return;
-      const her = p.gender === "male" ? "his" : "her";
-      push(id, "system", `You asked ${p.name} to share ${her} photos`, () => ({
-        requested: true,
-      }));
+      const text = p.gender === 'male' ? tr('You asked {name} to share his photos', { name: p.name }) : tr('You asked {name} to share her photos', { name: p.name });
+      push(id, 'system', text, () => ({ requested: true }));
       later(4000, () => reveal(id));
       if (__DEV__) console.log(`[chat] ${id} photos requested`);
     },
@@ -432,10 +342,7 @@ export function ChatProvider({
 
   const setActive = useCallback((id: string | null) => {
     activeRef.current = id;
-    if (id)
-      setThreads((prev) =>
-        prev[id]?.unread ? { ...prev, [id]: { ...prev[id], unread: 0 } } : prev,
-      );
+    if (id) setThreads((prev) => (prev[id]?.unread ? { ...prev, [id]: { ...prev[id], unread: 0 } } : prev));
   }, []);
 
   const removeThread = useCallback((id: string) => {
@@ -456,55 +363,23 @@ export function ChatProvider({
     if (!ready || !swipeReady || ghostChecked.current) return;
     ghostChecked.current = true;
     const quiet = Object.entries(saved.matches).find(
-      ([id, at]) =>
-        Date.now() - at > 30 * 60_000 &&
-        (threads[id]?.sent ?? 0) === 0 &&
-        sessionRandom(`${id}:ghost`) < 0.35,
+      ([id, at]) => Date.now() - at > 30 * 60_000 && (threads[id]?.sent ?? 0) === 0 && sessionRandom(`${id}:ghost`) < 0.35,
     );
     if (!quiet) return;
     const [id] = quiet;
     later(4000, () => {
-      unmatch(id, "They unmatched you", "them");
+      unmatch(id, 'They unmatched you', 'them');
       removeThread(id);
       const p = profileById(id);
-      if (p)
-        notify("matches", {
-          title: `${p.name} unmatched you`,
-          body: "It happens. New people are waiting for you.",
-          url: "/chats",
-        });
+      if (p) notify('matches', { title: tr('{name} unmatched you', { name: p.name }), body: tr('It happens. New people are waiting for you.'), url: '/chats' });
     });
     if (__DEV__) console.log(`[chat] ${id} will unmatch you (simulated)`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, swipeReady]);
 
   const value = useMemo(
-    () => ({
-      ready,
-      threads,
-      typing,
-      profileFor,
-      send,
-      sendMedia,
-      requestPhotos,
-      setActive,
-      removeThread,
-      markOpened: markOpenedNow,
-      toggleHeart,
-    }),
-    [
-      ready,
-      threads,
-      typing,
-      profileFor,
-      send,
-      sendMedia,
-      requestPhotos,
-      setActive,
-      removeThread,
-      markOpenedNow,
-      toggleHeart,
-    ],
+    () => ({ ready, threads, typing, profileFor, send, sendMedia, requestPhotos, setActive, removeThread, markOpened: markOpenedNow, toggleHeart }),
+    [ready, threads, typing, profileFor, send, sendMedia, requestPhotos, setActive, removeThread, markOpenedNow, toggleHeart],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
@@ -512,7 +387,7 @@ export function ChatProvider({
 
 export function useChats() {
   const ctx = useContext(ChatContext);
-  if (!ctx) throw new Error("useChats must be used inside ChatProvider");
+  if (!ctx) throw new Error('useChats must be used inside ChatProvider');
   return ctx;
 }
 
@@ -523,27 +398,26 @@ function notifyMessage(id: string, text: string, media?: ChatMedia) {
   if (!p) return;
   const preview = getNotifyPrefs().preview;
   const body = !preview
-    ? "Sent you a message"
+    ? tr('Sent you a message')
     : media?.timer
-      ? "Sent you a timed photo 🔥"
-      : media?.kind === "photo"
-        ? "Sent you a photo 📷"
-        : media?.kind === "video"
-          ? "Sent you a video 🎬"
-          : media?.kind === "audio"
-            ? "Sent you a voice message 🎤"
+      ? tr('Sent you a timed photo 🔥')
+      : media?.kind === 'photo'
+        ? tr('Sent you a photo 📷')
+        : media?.kind === 'video'
+          ? tr('Sent you a video 🎬')
+          : media?.kind === 'audio'
+            ? tr('Sent you a voice message 🎤')
             : text;
-  notify("messages", { title: p.name, body, url: `/chat/${id}` });
+  notify('messages', { title: p.name, body, url: `/chat/${id}` });
 }
 
 export function chatTime(at: number) {
   const d = new Date(at);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay)
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (sameDay) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   const y = new Date(now);
   y.setDate(now.getDate() - 1);
-  if (d.toDateString() === y.toDateString()) return "Yesterday";
-  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (d.toDateString() === y.toDateString()) return tr('Yesterday');
+  return d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 }

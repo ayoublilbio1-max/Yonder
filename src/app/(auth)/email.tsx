@@ -1,31 +1,19 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import {
-    Pressable,
-    StyleSheet,
-    View,
-    type TextInputInstance,
-} from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../auth/AuthProvider";
-import {
-    logInWithEmail,
-    passwordProblem,
-    signUpWithEmail,
-} from "../../auth/emailAccounts";
-import { AppButton } from "../../components/AppButton";
-import { AppText } from "../../components/AppText";
-import { AppTextInput } from "../../components/AppTextInput";
-import { useTheme } from "../../theme/ThemeProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, View, type TextInputInstance } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../auth/AuthProvider';
+import { logInWithEmail, passwordProblem, signUpWithEmail } from '../../auth/emailAccounts';
+import { AppButton } from '../../components/AppButton';
+import { AppText } from '../../components/AppText';
+import { AppTextInput } from '../../components/AppTextInput';
+import { useTheme } from '../../theme/ThemeProvider';
+import { tr } from '../../i18n/i18n';
 
-type Mode = "signup" | "login";
-type Errors = {
-  email?: string | null;
-  password?: string | null;
-  confirm?: string | null;
-};
+type Mode = 'signup' | 'login';
+type Errors = { email?: string | null; password?: string | null; confirm?: string | null };
 
 export default function EmailScreen() {
   const colors = useTheme();
@@ -33,10 +21,10 @@ export default function EmailScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("signup");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [mode, setMode] = useState<Mode>('signup');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
 
@@ -46,22 +34,18 @@ export default function EmailScreen() {
   const switchMode = (next: Mode) => {
     setMode(next);
     setErrors({});
-    setConfirm("");
+    setConfirm('');
   };
 
   const submit = async () => {
     if (busy) return;
-    if (mode === "signup") {
+    if (mode === 'signup') {
       const pwProblem = passwordProblem(password);
       if (pwProblem) return setErrors({ password: pwProblem });
-      if (confirm !== password)
-        return setErrors({ confirm: "Passwords don't match." });
+      if (confirm !== password) return setErrors({ confirm: tr("Passwords don't match.") });
     }
     setBusy(true);
-    const result =
-      mode === "signup"
-        ? await signUpWithEmail(email, password)
-        : await logInWithEmail(email, password);
+    const result = mode === 'signup' ? await signUpWithEmail(email, password) : await logInWithEmail(email, password);
     setBusy(false);
     if (!result.ok) {
       setErrors({ [result.field]: result.error });
@@ -70,7 +54,7 @@ export default function EmailScreen() {
     await signIn(result.user); // the root layout moves on to onboarding / the app
   };
 
-  const isSignup = mode === "signup";
+  const isSignup = mode === 'signup';
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
@@ -89,23 +73,18 @@ export default function EmailScreen() {
       <KeyboardAwareScrollView
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + 32 },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
       >
-        <AppText variant="display">
-          {isSignup ? "Create your account" : "Welcome back"}
-        </AppText>
+        <AppText variant="display">{isSignup ? tr('Create your account') : tr('Welcome back')}</AppText>
         <AppText variant="body" muted>
           {isSignup
-            ? "Sign up with your email. Your account is saved only on this phone."
-            : "Log in with the email and password you used on this phone."}
+            ? tr('Sign up with your email. Your account is saved only on this phone.')
+            : tr('Log in with the email and password you used on this phone.')}
         </AppText>
 
         {/* Sign up / Log in switch */}
         <View style={[styles.segment, { backgroundColor: colors.surface }]}>
-          {(["signup", "login"] as const).map((m) => {
+          {(['signup', 'login'] as const).map((m) => {
             const selected = mode === m;
             return (
               <Pressable
@@ -113,17 +92,14 @@ export default function EmailScreen() {
                 onPress={() => switchMode(m)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected }}
-                style={[
-                  styles.segmentItem,
-                  selected && { backgroundColor: colors.card },
-                ]}
+                style={[styles.segmentItem, selected && { backgroundColor: colors.card }]}
               >
                 <AppText
                   variant="bodySmall"
-                  weight={selected ? "semibold" : "medium"}
+                  weight={selected ? 'semibold' : 'medium'}
                   color={selected ? colors.text : colors.textMuted}
                 >
-                  {m === "signup" ? "Sign up" : "Log in"}
+                  {m === 'signup' ? tr('Sign up') : tr('Log in')}
                 </AppText>
               </Pressable>
             );
@@ -132,13 +108,13 @@ export default function EmailScreen() {
 
         <View style={styles.form}>
           <AppTextInput
-            label="Email"
+            label={tr('Email')}
             value={email}
             onChangeText={(t) => {
               setEmail(t);
               if (errors.email) setErrors((e) => ({ ...e, email: null }));
             }}
-            placeholder="you@example.com"
+            placeholder={tr('you@example.com')}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -149,37 +125,31 @@ export default function EmailScreen() {
           />
           <AppTextInput
             ref={passwordRef}
-            label="Password"
+            label={tr('Password')}
             value={password}
             onChangeText={(t) => {
               setPassword(t);
               if (errors.password) setErrors((e) => ({ ...e, password: null }));
             }}
-            placeholder={
-              isSignup
-                ? "At least 8 characters, with a number"
-                : "Your password"
-            }
+            placeholder={isSignup ? tr('At least 8 characters, with a number') : tr('Your password')}
             password
             autoCapitalize="none"
             autoCorrect={false}
-            autoComplete={isSignup ? "new-password" : "current-password"}
-            returnKeyType={isSignup ? "next" : "done"}
-            onSubmitEditing={() =>
-              isSignup ? confirmRef.current?.focus() : submit()
-            }
+            autoComplete={isSignup ? 'new-password' : 'current-password'}
+            returnKeyType={isSignup ? 'next' : 'done'}
+            onSubmitEditing={() => (isSignup ? confirmRef.current?.focus() : submit())}
             error={errors.password}
           />
           {isSignup ? (
             <AppTextInput
               ref={confirmRef}
-              label="Confirm password"
+              label={tr('Confirm password')}
               value={confirm}
               onChangeText={(t) => {
                 setConfirm(t);
                 if (errors.confirm) setErrors((e) => ({ ...e, confirm: null }));
               }}
-              placeholder="Type it again"
+              placeholder={tr('Type it again')}
               password
               autoCapitalize="none"
               autoCorrect={false}
@@ -192,24 +162,16 @@ export default function EmailScreen() {
         </View>
 
         <AppButton
-          label={busy ? "Please wait…" : isSignup ? "Create account" : "Log in"}
+          label={busy ? tr('Please wait…') : isSignup ? tr('Create account') : tr('Log in')}
           onPress={submit}
           disabled={busy || !email || !password || (isSignup && !confirm)}
         />
 
-        <Pressable
-          onPress={() => switchMode(isSignup ? "login" : "signup")}
-          style={styles.switchLink}
-          hitSlop={6}
-        >
+        <Pressable onPress={() => switchMode(isSignup ? 'login' : 'signup')} style={styles.switchLink} hitSlop={6}>
           <AppText variant="bodySmall" muted align="center">
-            {isSignup ? "Already have an account? " : "New to Yonder? "}
-            <AppText
-              variant="bodySmall"
-              weight="semibold"
-              color={colors.primary}
-            >
-              {isSignup ? "Log in" : "Sign up"}
+            {isSignup ? tr('Already have an account? ') : tr('New to Yonder? ')}
+            <AppText variant="bodySmall" weight="semibold" color={colors.primary}>
+              {isSignup ? tr('Log in') : tr('Sign up')}
             </AppText>
           </AppText>
         </Pressable>
@@ -230,8 +192,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     paddingHorizontal: 20,
@@ -239,7 +201,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   segment: {
-    flexDirection: "row",
+    flexDirection: 'row',
     borderRadius: 14,
     padding: 4,
   },
@@ -247,8 +209,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 40,
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   form: {
     gap: 14,

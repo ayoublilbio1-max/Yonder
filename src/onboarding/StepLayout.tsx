@@ -9,6 +9,7 @@ import { AppText } from '../components/AppText';
 import { ThemedModal } from '../components/ThemedModal';
 import { useTheme } from '../theme/ThemeProvider';
 import { stepProgress, type StepId } from './steps';
+import { tr } from '../i18n/i18n';
 
 // Frame of every onboarding question: back · progress bar · help, then title, content, footer.
 // The footer sticks above the keyboard when it opens.
@@ -93,10 +94,10 @@ export function StepLayout({ stepId, title, subtitle, children, footer, scroll =
         icon="help-buoy-outline"
         iconColor={colors.primary}
         iconBg={colors.primarySoft}
-        title="Why we ask"
-        message="Your answers help Yonder show you people who fit what you’re looking for. You can change them later in your profile."
+        title={tr('Why we ask')}
+        message={tr('Your answers help Yonder show you people who fit what you’re looking for. You can change them later in your profile.')}
       >
-        <AppButton label="Got it" onPress={() => setHelpOpen(false)} />
+        <AppButton label={tr('Got it')} onPress={() => setHelpOpen(false)} />
       </ThemedModal>
     </View>
   );

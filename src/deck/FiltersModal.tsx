@@ -1,14 +1,14 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { useState, type ReactNode } from "react";
-import { Modal, ScrollView, StyleSheet, Switch, View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppButton } from "../components/AppButton";
-import { AppText } from "../components/AppText";
-import { ConfirmModal } from "../components/ConfirmModal";
-import { PressableScale } from "../components/PressableScale";
-import { RangeSlider } from "../components/RangeSlider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useState, type ReactNode } from 'react';
+import { Modal, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { PressableScale } from '../components/PressableScale';
+import { RangeSlider } from '../components/RangeSlider';
 import {
   ACTIVE_OPTIONS,
   activeFilterCount,
@@ -24,20 +24,16 @@ import {
   heightRangeLabel,
   OPTIONS,
   type Filters,
-} from "../filters/filters";
-import { DURATION, EASE_OUT } from "../motion/ease";
-import { INTENT_LABEL } from "../profiles/data";
-import {
-  DRINKING_LABEL,
-  MARITAL_LABEL,
-  PERSONALITY_NAME,
-  SMOKING_LABEL,
-} from "../profiles/extras";
-import type { ProfileIntent, ProfileMarital } from "../profiles/types";
-import { useDistanceUnit } from "../settings/units";
-import { useWallet } from "../store/WalletProvider";
-import { useTheme } from "../theme/ThemeProvider";
-import { GoldSheet } from "./GoldSheet";
+} from '../filters/filters';
+import { INTENT_LABEL } from '../profiles/data';
+import { DRINKING_LABEL, MARITAL_LABEL, PERSONALITY_NAME, SMOKING_LABEL } from '../profiles/extras';
+import type { ProfileIntent, ProfileMarital } from '../profiles/types';
+import { useWallet } from '../store/WalletProvider';
+import { DURATION, EASE_OUT } from '../motion/ease';
+import { useDistanceUnit } from '../settings/units';
+import { useTheme } from '../theme/ThemeProvider';
+import { GoldSheet } from './GoldSheet';
+import { tr } from '../i18n/i18n';
 
 // Filters, like dating apps do it: age + distance sliders on top, then one row per filter.
 // A row opens its own page (back · title · Clear). Everything is a draft until "Apply filters".
@@ -54,120 +50,90 @@ export function FiltersModal(props: Props) {
 }
 
 type ListKey =
-  | "intents"
-  | "religions"
-  | "ethnicities"
-  | "nationalities"
-  | "marital"
-  | "languages"
-  | "education"
-  | "professions"
-  | "interests"
-  | "personality"
-  | "drinking"
-  | "smoking";
-type PageKey = ListKey | "height" | "children" | "photos" | "active";
+  | 'intents'
+  | 'religions'
+  | 'ethnicities'
+  | 'nationalities'
+  | 'marital'
+  | 'languages'
+  | 'education'
+  | 'professions'
+  | 'interests'
+  | 'personality'
+  | 'drinking'
+  | 'smoking';
+type PageKey = ListKey | 'height' | 'children' | 'photos' | 'active';
 
 type Option = { key: string; label: string };
 const opts = (list: string[], label?: (v: string) => string): Option[] =>
   list.map((v) => ({ key: v, label: label ? label(v) : v }));
 
-const MARITAL_KEYS: ProfileMarital[] = ["neverMarried", "divorced", "widowed"];
-const INTENT_KEYS: ProfileIntent[] = [
-  "marriage",
-  "serious_relationship",
-  "for_fun",
-  "new_friends",
-];
+const MARITAL_KEYS: ProfileMarital[] = ['neverMarried', 'divorced', 'widowed'];
+const INTENT_KEYS: ProfileIntent[] = ['marriage', 'serious_relationship', 'for_fun', 'new_friends'];
 
 const LISTS: Record<ListKey, { title: string; options: Option[] }> = {
-  intents: {
-    title: "Looking for",
-    options: opts(INTENT_KEYS, (i) => INTENT_LABEL[i as ProfileIntent]),
-  },
-  religions: { title: "Religion", options: opts(OPTIONS.religions) },
-  ethnicities: { title: "Ethnicity", options: opts(OPTIONS.ethnicities) },
-  nationalities: { title: "Nationality", options: opts(OPTIONS.nationalities) },
-  marital: {
-    title: "Marital status",
-    options: opts(MARITAL_KEYS, (m) => MARITAL_LABEL[m as ProfileMarital]),
-  },
-  languages: { title: "Languages", options: opts(OPTIONS.languages) },
-  education: { title: "Education", options: opts(OPTIONS.education) },
-  professions: { title: "Profession", options: opts(OPTIONS.professions) },
-  interests: { title: "Interests", options: opts(OPTIONS.interests) },
-  personality: {
-    title: "Personality",
-    options: opts(
-      OPTIONS.personality,
-      (v) => `${v} · ${PERSONALITY_NAME[v] ?? ""}`,
-    ),
-  },
-  drinking: {
-    title: "Alcohol",
-    options: opts(Object.keys(DRINKING_LABEL), (v) => DRINKING_LABEL[v] ?? v),
-  },
-  smoking: {
-    title: "Smoking",
-    options: opts(Object.keys(SMOKING_LABEL), (v) => SMOKING_LABEL[v] ?? v),
-  },
+  intents: { title: 'Looking for', options: opts(INTENT_KEYS, (i) => INTENT_LABEL[i as ProfileIntent]) },
+  religions: { title: 'Religion', options: opts(OPTIONS.religions) },
+  ethnicities: { title: 'Ethnicity', options: opts(OPTIONS.ethnicities) },
+  nationalities: { title: 'Nationality', options: opts(OPTIONS.nationalities) },
+  marital: { title: 'Marital status', options: opts(MARITAL_KEYS, (m) => MARITAL_LABEL[m as ProfileMarital]) },
+  languages: { title: 'Languages', options: opts(OPTIONS.languages) },
+  education: { title: 'Education', options: opts(OPTIONS.education) },
+  professions: { title: 'Profession', options: opts(OPTIONS.professions) },
+  interests: { title: 'Interests', options: opts(OPTIONS.interests) },
+  personality: { title: 'Personality', options: opts(OPTIONS.personality, (v) => `${v} · ${PERSONALITY_NAME[v] ?? ''}`) },
+  drinking: { title: 'Alcohol', options: opts(Object.keys(DRINKING_LABEL), (v) => DRINKING_LABEL[v] ?? v) },
+  smoking: { title: 'Smoking', options: opts(Object.keys(SMOKING_LABEL), (v) => SMOKING_LABEL[v] ?? v) },
 };
 
-const CHILDREN: { key: Filters["children"]; label: string }[] = [
-  { key: "any", label: "Any" },
-  { key: "yes", label: "Has children" },
-  { key: "no", label: "No children" },
+const CHILDREN: { key: Filters['children']; label: string }[] = [
+  { key: 'any', label: 'Any' },
+  { key: 'yes', label: 'Has children' },
+  { key: 'no', label: 'No children' },
 ];
-const PHOTOS: { key: Filters["photos"]; label: string }[] = [
-  { key: "any", label: "Everyone" },
-  { key: "clear", label: "Without blurred photos" },
-  { key: "blurred", label: "With blurred photos" },
+const PHOTOS: { key: Filters['photos']; label: string }[] = [
+  { key: 'any', label: 'Everyone' },
+  { key: 'clear', label: 'Without blurred photos' },
+  { key: 'blurred', label: 'With blurred photos' },
 ];
 
 // Free for everyone (after the age + distance sliders).
-const BASIC_ROWS: PageKey[] = ["religions", "ethnicities", "nationalities"];
+const BASIC_ROWS: PageKey[] = ['religions', 'ethnicities', 'nationalities'];
 // Yonder Gold.
 const GOLD_ROWS: PageKey[] = [
-  "intents",
-  "height",
-  "marital",
-  "children",
-  "languages",
-  "education",
-  "professions",
-  "interests",
-  "personality",
-  "drinking",
-  "smoking",
-  "photos",
-  "active",
+  'intents',
+  'height',
+  'marital',
+  'children',
+  'languages',
+  'education',
+  'professions',
+  'interests',
+  'personality',
+  'drinking',
+  'smoking',
+  'photos',
+  'active',
 ];
 
 function pageTitle(k: PageKey) {
-  if (k === "height") return "Height";
-  if (k === "children") return "Children";
-  if (k === "photos") return "Photos";
-  if (k === "active") return "Recently active";
-  return LISTS[k].title;
+  if (k === 'height') return tr('Height');
+  if (k === 'children') return tr('Children');
+  if (k === 'photos') return tr('Photos');
+  if (k === 'active') return tr('Recently active');
+  return tr(LISTS[k].title);
 }
 
+// The value shown on a row, in the app language (compared in isSet, so both sides use the same language).
 function summary(k: PageKey, f: Filters) {
-  if (k === "height")
-    return f.heightMin === HEIGHT_MIN && f.heightMax === HEIGHT_MAX
-      ? "Any"
-      : heightRangeLabel(f.heightMin, f.heightMax);
-  if (k === "children")
-    return CHILDREN.find((c) => c.key === f.children)?.label ?? "Any";
-  if (k === "photos")
-    return PHOTOS.find((c) => c.key === f.photos)?.label ?? "Everyone";
-  if (k === "active")
-    return ACTIVE_OPTIONS.find((o) => o.key === f.active)?.label ?? "Any time";
+  if (k === 'height') return f.heightMin === HEIGHT_MIN && f.heightMax === HEIGHT_MAX ? tr('Any') : heightRangeLabel(f.heightMin, f.heightMax);
+  if (k === 'children') return tr(CHILDREN.find((c) => c.key === f.children)?.label ?? 'Any');
+  if (k === 'photos') return tr(PHOTOS.find((c) => c.key === f.photos)?.label ?? 'Everyone');
+  if (k === 'active') return tr(ACTIVE_OPTIONS.find((o) => o.key === f.active)?.label ?? 'Any time');
   const picked = f[k] as string[];
-  if (picked.length === 0) return "Any";
-  const labels = picked.map(
-    (v) => LISTS[k].options.find((o) => o.key === v)?.label ?? v,
-  );
-  return picked.length <= 2 ? labels.join(", ") : `${picked.length} selected`;
+  if (picked.length === 0) return tr('Any');
+  const labels = picked.map((v) => tr(LISTS[k].options.find((o) => o.key === v)?.label ?? v));
+  return picked.length <= 2 ? labels.join(', ') : tr('{count} selected', { count: picked.length });
 }
 
 function isSet(k: PageKey, f: Filters) {
@@ -186,8 +152,7 @@ function FiltersBody({ value, onClose, onApply }: Props) {
   const [sliderKey, setSliderKey] = useState(0); // new key = sliders start again from the draft values
   const count = activeFilterCount(draft);
 
-  const set = (patch: Partial<Filters>) =>
-    setDraft((d) => ({ ...d, ...patch }));
+  const set = (patch: Partial<Filters>) => setDraft((d) => ({ ...d, ...patch }));
 
   const back = () => {
     if (page) setPage(null);
@@ -207,75 +172,51 @@ function FiltersBody({ value, onClose, onApply }: Props) {
   const gold = (patch: Partial<Filters>) => {
     if (!wallet.gold) {
       setGoldOpen(true);
-      if (__DEV__) console.log("[filters] advanced filter tapped without Gold");
+      if (__DEV__) console.log('[filters] advanced filter tapped without Gold');
       return;
     }
     set(patch);
   };
 
   const clearPage = (k: PageKey) => {
-    if (k === "height") {
+    if (k === 'height') {
       set({ heightMin: HEIGHT_MIN, heightMax: HEIGHT_MAX });
       setSliderKey((n) => n + 1);
-    } else if (k === "children") set({ children: "any" });
-    else if (k === "photos") set({ photos: "any" });
-    else if (k === "active") set({ active: "any" });
+    }
+    else if (k === 'children') set({ children: 'any' });
+    else if (k === 'photos') set({ photos: 'any' });
+    else if (k === 'active') set({ active: 'any' });
     else set({ [k]: [] } as Partial<Filters>);
   };
 
   const toggle = (k: ListKey, v: string) =>
     setDraft((d) => {
       const list = d[k] as string[];
-      const next = list.includes(v)
-        ? list.filter((x) => x !== v)
-        : [...list, v];
+      const next = list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
       return { ...d, [k]: next } as Filters;
     });
 
   return (
     // Android back button → back to the list first, then closes.
-    <Modal
-      visible
-      animationType="slide"
-      onRequestClose={back}
-      statusBarTranslucent
-      navigationBarTranslucent
-    >
+    <Modal visible animationType="slide" onRequestClose={back} statusBarTranslucent navigationBarTranslucent>
       {/* A Modal is its own native window on Android: gestures (the sliders) need their own root here. */}
-      <GestureHandlerRootView
-        style={[
-          styles.root,
-          { backgroundColor: colors.bg, paddingTop: insets.top },
-        ]}
-      >
+      <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
         {page === null ? (
-          <Animated.View
-            key="main"
-            entering={FadeIn.duration(DURATION.quick + 40).easing(EASE_OUT)}
-            style={styles.root}
-          >
+          <Animated.View key="main" entering={FadeIn.duration(DURATION.quick + 40).easing(EASE_OUT)} style={styles.root}>
             <Header
-              left={<HeaderIcon icon="close" label="Close" onPress={onClose} />}
-              title={`Filters${count ? ` (${count})` : ""}`}
+              left={<HeaderIcon icon="close" label={tr('Close')} onPress={onClose} />}
+              title={tr('Filters{v}', { v: count ? ` (${count})` : '' })}
               right={
-                <HeaderText
-                  label="Reset"
-                  disabled={count === 0}
-                  onPress={() => setConfirmReset(true)}
-                />
+                <HeaderText label={tr('Reset')} disabled={count === 0} onPress={() => setConfirmReset(true)} />
               }
             />
             <ScrollView contentContainerStyle={styles.content}>
               <Card>
                 <View style={styles.sliderHead}>
                   <AppText variant="body" weight="semibold">
-                    Age
+                    {tr('Age')}
                   </AppText>
-                  <AppText
-                    variant="body"
-                    weight="semibold"
-                    color={colors.primary}
-                  >
+                  <AppText variant="body" weight="semibold" color={colors.primary}>
                     {ageLabel(draft.ageMin, draft.ageMax)}
                   </AppText>
                 </View>
@@ -293,13 +234,9 @@ function FiltersBody({ value, onClose, onApply }: Props) {
               <Card>
                 <View style={styles.sliderHead}>
                   <AppText variant="body" weight="semibold">
-                    Maximum distance
+                    {tr('Maximum distance')}
                   </AppText>
-                  <AppText
-                    variant="body"
-                    weight="semibold"
-                    color={colors.primary}
-                  >
+                  <AppText variant="body" weight="semibold" color={colors.primary}>
                     {distanceLabel(draft.distance, unit)}
                   </AppText>
                 </View>
@@ -308,25 +245,14 @@ function FiltersBody({ value, onClose, onApply }: Props) {
                   min={DISTANCE_MIN}
                   max={DISTANCE_MAX}
                   high={draft.distance ?? DISTANCE_MAX}
-                  onChange={(_, h) =>
-                    set({ distance: h >= DISTANCE_MAX ? null : h })
-                  }
+                  onChange={(_, h) => set({ distance: h >= DISTANCE_MAX ? null : h })}
                 />
                 <AppText variant="caption" muted>
-                  If there aren’t enough people nearby, we show people a bit
-                  further away.
+                  {tr('If there aren’t enough people nearby, we show people a bit further away.')}
                 </AppText>
               </Card>
 
-              <View
-                style={[
-                  styles.group,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
+              <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 {BASIC_ROWS.map((k, i) => (
                   <Row
                     key={k}
@@ -341,82 +267,33 @@ function FiltersBody({ value, onClose, onApply }: Props) {
 
               {/* ---------- Gold ---------- */}
               <View style={styles.goldTitle}>
-                <View
-                  style={[styles.goldBadge, { backgroundColor: colors.gold }]}
-                >
+                <View style={[styles.goldBadge, { backgroundColor: colors.gold }]}>
                   <Ionicons name="star" size={12} color={colors.onPhoto} />
-                  <AppText
-                    variant="caption"
-                    weight="bold"
-                    color={colors.onPhoto}
-                  >
-                    GOLD
+                  <AppText variant="caption" weight="bold" color={colors.onPhoto}>
+                    {tr('GOLD')}
                   </AppText>
                 </View>
-                <AppText variant="heading">Advanced filters</AppText>
+                <AppText variant="heading">{tr('Advanced filters')}</AppText>
               </View>
               {!wallet.gold ? (
                 <PressableScale
                   onPress={() => setGoldOpen(true)}
                   accessibilityRole="button"
                   scaleTo={0.98}
-                  style={[
-                    styles.goldCard,
-                    {
-                      backgroundColor: colors.goldSoft,
-                      borderColor: colors.gold,
-                    },
-                  ]}
+                  style={[styles.goldCard, { backgroundColor: colors.goldSoft, borderColor: colors.gold }]}
                 >
                   <Ionicons name="lock-closed" size={20} color={colors.gold} />
-                  <AppText
-                    variant="bodySmall"
-                    weight="medium"
-                    style={styles.flex}
-                  >
-                    Get Yonder Gold to use these filters.
+                  <AppText variant="bodySmall" weight="medium" style={styles.flex}>
+                    {tr('Get Yonder Gold to use these filters.')}
                   </AppText>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={colors.gold}
-                  />
+                  <Ionicons name="chevron-forward" size={18} color={colors.gold} />
                 </PressableScale>
               ) : null}
-              <View
-                style={[
-                  styles.group,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <SwitchRow
-                  first
-                  label="Completed bio"
-                  locked={!wallet.gold}
-                  value={draft.completeBio}
-                  onChange={(v) => gold({ completeBio: v })}
-                />
-                <SwitchRow
-                  label="ID and age verified"
-                  locked={!wallet.gold}
-                  value={draft.verified}
-                  onChange={(v) => gold({ verified: v })}
-                />
-                <SwitchRow
-                  label="Gold members"
-                  locked={!wallet.gold}
-                  value={draft.goldOnly}
-                  onChange={(v) => gold({ goldOnly: v })}
-                />
-                <SwitchRow
-                  label="Just joined"
-                  locked={!wallet.gold}
-                  value={draft.justJoined}
-                  onChange={(v) => gold({ justJoined: v })}
-                />
+              <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <SwitchRow first label={tr('Completed bio')} locked={!wallet.gold} value={draft.completeBio} onChange={(v) => gold({ completeBio: v })} />
+                <SwitchRow label={tr('ID and age verified')} locked={!wallet.gold} value={draft.verified} onChange={(v) => gold({ verified: v })} />
+                <SwitchRow label={tr('Gold members')} locked={!wallet.gold} value={draft.goldOnly} onChange={(v) => gold({ goldOnly: v })} />
+                <SwitchRow label={tr('Just joined')} locked={!wallet.gold} value={draft.justJoined} onChange={(v) => gold({ justJoined: v })} />
                 {GOLD_ROWS.map((k) => (
                   <Row
                     key={k}
@@ -430,17 +307,9 @@ function FiltersBody({ value, onClose, onApply }: Props) {
               </View>
             </ScrollView>
 
-            <View
-              style={[
-                styles.footer,
-                {
-                  paddingBottom: insets.bottom + 12,
-                  borderTopColor: colors.border,
-                },
-              ]}
-            >
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 12, borderTopColor: colors.border }]}>
               <AppButton
-                label="Apply filters"
+                label={tr('Apply filters')}
                 onPress={() => {
                   onApply(draft);
                   onClose();
@@ -449,41 +318,14 @@ function FiltersBody({ value, onClose, onApply }: Props) {
             </View>
           </Animated.View>
         ) : (
-          <Animated.View
-            key={page}
-            entering={SlideInRight.duration(DURATION.page).easing(EASE_OUT)}
-            style={styles.root}
-          >
+          <Animated.View key={page} entering={SlideInRight.duration(DURATION.page).easing(EASE_OUT)} style={styles.root}>
             <Header
-              left={
-                <HeaderIcon
-                  icon="arrow-back"
-                  label="Back"
-                  onPress={() => setPage(null)}
-                />
-              }
+              left={<HeaderIcon icon="arrow-back" label={tr('Back')} onPress={() => setPage(null)} />}
               title={pageTitle(page)}
-              right={
-                <HeaderText
-                  label="Clear"
-                  disabled={!isSet(page, draft)}
-                  onPress={() => clearPage(page)}
-                />
-              }
+              right={<HeaderText label={tr('Clear')} disabled={!isSet(page, draft)} onPress={() => clearPage(page)} />}
             />
-            <ScrollView
-              contentContainerStyle={[
-                styles.content,
-                { paddingBottom: insets.bottom + 24 },
-              ]}
-            >
-              <PageContent
-                page={page}
-                draft={draft}
-                set={set}
-                toggle={toggle}
-                sliderKey={sliderKey}
-              />
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+              <PageContent page={page} draft={draft} set={set} toggle={toggle} sliderKey={sliderKey} />
             </ScrollView>
           </Animated.View>
         )}
@@ -492,15 +334,15 @@ function FiltersBody({ value, onClose, onApply }: Props) {
         <ConfirmModal
           visible={confirmReset}
           icon="refresh-outline"
-          title="Reset all filters?"
-          message="Age, distance and every other filter go back to “Any”. Nothing changes until you tap Apply filters."
-          confirmLabel="Reset"
+          title={tr('Reset all filters?')}
+          message={tr('Age, distance and every other filter go back to “Any”. Nothing changes until you tap Apply filters.')}
+          confirmLabel={tr('Reset')}
           onCancel={() => setConfirmReset(false)}
           onConfirm={() => {
             setConfirmReset(false);
             setDraft(DEFAULT_FILTERS);
             setSliderKey((n) => n + 1);
-            if (__DEV__) console.log("[filters] reset (draft)");
+            if (__DEV__) console.log('[filters] reset (draft)');
           }}
         />
       </GestureHandlerRootView>
@@ -523,12 +365,12 @@ function PageContent({
 }) {
   const colors = useTheme();
 
-  if (page === "height") {
+  if (page === 'height') {
     return (
       <Card>
         <View style={styles.sliderHead}>
           <AppText variant="body" weight="semibold">
-            Height
+            {tr('Height')}
           </AppText>
           <AppText variant="body" weight="semibold" color={colors.primary}>
             {heightRangeLabel(draft.heightMin, draft.heightMax)}
@@ -547,40 +389,25 @@ function PageContent({
     );
   }
 
-  if (page === "children" || page === "photos" || page === "active") {
-    const list: Option[] =
-      page === "children"
-        ? CHILDREN
-        : page === "photos"
-          ? PHOTOS
-          : ACTIVE_OPTIONS;
-    const current =
-      page === "children"
-        ? draft.children
-        : page === "photos"
-          ? draft.photos
-          : draft.active;
+  if (page === 'children' || page === 'photos' || page === 'active') {
+    const list: Option[] = page === 'children' ? CHILDREN : page === 'photos' ? PHOTOS : ACTIVE_OPTIONS;
+    const current = page === 'children' ? draft.children : page === 'photos' ? draft.photos : draft.active;
     return (
-      <View
-        style={[
-          styles.group,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {list.map((o, i) => (
           <OptionRow
             key={o.key}
-            label={o.label}
+            label={tr(o.label)}
             selected={current === o.key}
             radio
             first={i === 0}
             onPress={() =>
               set(
-                page === "children"
-                  ? { children: o.key as Filters["children"] }
-                  : page === "photos"
-                    ? { photos: o.key as Filters["photos"] }
-                    : { active: o.key as Filters["active"] },
+                page === 'children'
+                  ? { children: o.key as Filters['children'] }
+                  : page === 'photos'
+                    ? { photos: o.key as Filters['photos'] }
+                    : { active: o.key as Filters['active'] },
               )
             }
           />
@@ -593,18 +420,13 @@ function PageContent({
   return (
     <>
       <AppText variant="caption" muted style={styles.hint}>
-        Pick as many as you like.
+        {tr('Pick as many as you like.')}
       </AppText>
-      <View
-        style={[
-          styles.group,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
+      <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         {LISTS[page].options.map((o, i) => (
           <OptionRow
             key={o.key}
-            label={o.label}
+            label={tr(o.label)}
             selected={picked.includes(o.key)}
             first={i === 0}
             onPress={() => toggle(page, o.key)}
@@ -617,25 +439,12 @@ function PageContent({
 
 // ---------- small pieces ----------
 
-function Header({
-  left,
-  title,
-  right,
-}: {
-  left: ReactNode;
-  title: string;
-  right: ReactNode;
-}) {
+function Header({ left, title, right }: { left: ReactNode; title: string; right: ReactNode }) {
   const colors = useTheme();
   return (
     <View style={[styles.header, { borderBottomColor: colors.border }]}>
       <View style={styles.side}>{left}</View>
-      <AppText
-        variant="heading"
-        align="center"
-        numberOfLines={1}
-        style={styles.flex}
-      >
+      <AppText variant="heading" align="center" numberOfLines={1} style={styles.flex}>
         {title}
       </AppText>
       <View style={[styles.side, styles.sideRight]}>{right}</View>
@@ -643,54 +452,20 @@ function Header({
   );
 }
 
-function HeaderIcon({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: "close" | "arrow-back";
-  label: string;
-  onPress: () => void;
-}) {
+function HeaderIcon({ icon, label, onPress }: { icon: 'close' | 'arrow-back'; label: string; onPress: () => void }) {
   const colors = useTheme();
   return (
-    <PressableScale
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      hitSlop={10}
-      scaleTo={0.88}
-      style={styles.headerBtn}
-    >
+    <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={10} scaleTo={0.88} style={styles.headerBtn}>
       <Ionicons name={icon} size={25} color={colors.text} />
     </PressableScale>
   );
 }
 
-function HeaderText({
-  label,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  onPress: () => void;
-  disabled: boolean;
-}) {
+function HeaderText({ label, onPress, disabled }: { label: string; onPress: () => void; disabled: boolean }) {
   const colors = useTheme();
   return (
-    <PressableScale
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      hitSlop={10}
-      scaleTo={0.94}
-      dimTo={0.7}
-    >
-      <AppText
-        variant="body"
-        weight="semibold"
-        color={disabled ? colors.textSubtle : colors.primary}
-      >
+    <PressableScale onPress={onPress} disabled={disabled} accessibilityRole="button" hitSlop={10} scaleTo={0.94} dimTo={0.7}>
+      <AppText variant="body" weight="semibold" color={disabled ? colors.textSubtle : colors.primary}>
         {label}
       </AppText>
     </PressableScale>
@@ -699,16 +474,7 @@ function HeaderText({
 
 function Card({ children }: { children: ReactNode }) {
   const colors = useTheme();
-  return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      {children}
-    </View>
-  );
+  return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>;
 }
 
 function Row({
@@ -734,23 +500,15 @@ function Row({
       accessibilityLabel={`${title}: ${value}`}
       scaleTo={0.99}
       dimTo={0.6}
-      style={[
-        styles.row,
-        !first && {
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-        },
-      ]}
+      style={[styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
     >
       <AppText variant="body" style={styles.flex}>
         {title}
       </AppText>
-      {locked ? (
-        <Ionicons name="lock-closed" size={16} color={colors.gold} />
-      ) : null}
+      {locked ? <Ionicons name="lock-closed" size={16} color={colors.gold} /> : null}
       <AppText
         variant="bodySmall"
-        weight={active ? "semibold" : "regular"}
+        weight={active ? 'semibold' : 'regular'}
         color={active ? colors.primary : colors.textMuted}
         numberOfLines={1}
         style={styles.rowValue}
@@ -778,38 +536,24 @@ function OptionRow({
   const colors = useTheme();
   const icon = radio
     ? selected
-      ? "radio-button-on"
-      : "radio-button-off"
+      ? 'radio-button-on'
+      : 'radio-button-off'
     : selected
-      ? "checkbox"
-      : "square-outline";
+      ? 'checkbox'
+      : 'square-outline';
   return (
     <PressableScale
       onPress={onPress}
       scaleTo={0.99}
       dimTo={0.6}
-      accessibilityRole={radio ? "radio" : "checkbox"}
+      accessibilityRole={radio ? 'radio' : 'checkbox'}
       accessibilityState={radio ? { selected } : { checked: selected }}
-      style={[
-        styles.row,
-        !first && {
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-        },
-      ]}
+      style={[styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
     >
-      <AppText
-        variant="body"
-        weight={selected ? "semibold" : "regular"}
-        style={styles.flex}
-      >
+      <AppText variant="body" weight={selected ? 'semibold' : 'regular'} style={styles.flex}>
         {label}
       </AppText>
-      <Ionicons
-        name={icon}
-        size={22}
-        color={selected ? colors.primary : colors.textSubtle}
-      />
+      <Ionicons name={icon} size={22} color={selected ? colors.primary : colors.textSubtle} />
     </PressableScale>
   );
 }
@@ -835,26 +579,13 @@ function SwitchRow({
       dimTo={0.7}
       accessibilityRole="switch"
       accessibilityState={{ checked: value }}
-      style={[
-        styles.row,
-        !first && {
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-        },
-      ]}
+      style={[styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
     >
       <AppText variant="body" style={styles.flex}>
         {label}
       </AppText>
-      {locked ? (
-        <Ionicons name="lock-closed" size={16} color={colors.gold} />
-      ) : null}
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: colors.border, true: colors.primary }}
-        thumbColor={colors.card}
-      />
+      {locked ? <Ionicons name="lock-closed" size={16} color={colors.gold} /> : null}
+      <Switch value={value} onValueChange={onChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.card} />
     </PressableScale>
   );
 }
@@ -867,25 +598,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     minHeight: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   side: {
     width: 72,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
   sideRight: {
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
     paddingRight: 4,
   },
   headerBtn: {
     width: 40,
     height: 40,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     padding: 12,
@@ -900,45 +631,45 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sliderHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   group: {
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     paddingHorizontal: 16,
     minHeight: 54,
   },
   rowValue: {
-    maxWidth: "45%",
+    maxWidth: '45%',
   },
   hint: {
     marginLeft: 4,
   },
   goldTitle: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginTop: 8,
   },
   goldBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 3,
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
   goldCard: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     borderWidth: 1,
     borderRadius: 16,

@@ -16,6 +16,7 @@ import { mainPhotoUri } from '../profiles/data';
 import type { Profile } from '../profiles/types';
 import { useTheme } from '../theme/ThemeProvider';
 import type { Category } from './categories';
+import { tr } from '../i18n/i18n';
 
 // One Explore category as its own swipe deck: the same card, buttons and match rules as Swipe.
 // Tap the card for the full profile.
@@ -105,10 +106,10 @@ function DeckContent({ category, onClose, onMatch }: { category: Category; onClo
         </View>
         <View style={styles.flex}>
           <AppText variant="heading" numberOfLines={1}>
-            {category.title}
+            {tr(category.title)}
           </AppText>
           <AppText variant="caption" muted>
-            {list.length} {list.length === 1 ? 'person' : 'people'}
+            {list.length === 1 ? tr('1 person') : tr('{count} people', { count: list.length })}
           </AppText>
         </View>
       </View>
@@ -130,9 +131,9 @@ function DeckContent({ category, onClose, onMatch }: { category: Category; onClo
             />
           </View>
           <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
-            <Round icon="close" gradient={actionGradients.pass} size={64} label="Pass" onPress={() => press('pass')} />
-            <Round icon="star" gradient={actionGradients.superLike} size={52} label="Super like" onPress={() => press('superlike')} />
-            <Round icon="heart" gradient={actionGradients.like} size={64} label="Like" onPress={() => press('like')} />
+            <Round icon="close" gradient={actionGradients.pass} size={64} label={tr('Pass')} onPress={() => press('pass')} />
+            <Round icon="star" gradient={actionGradients.superLike} size={52} label={tr('Super like')} onPress={() => press('superlike')} />
+            <Round icon="heart" gradient={actionGradients.like} size={64} label={tr('Like')} onPress={() => press('like')} />
           </View>
         </>
       ) : (
@@ -141,12 +142,12 @@ function DeckContent({ category, onClose, onMatch }: { category: Category; onClo
             <Ionicons name={category.icon} size={38} color={colors.primary} />
           </View>
           <AppText variant="heading" align="center">
-            You’ve seen everyone here
+            {tr('You’ve seen everyone here')}
           </AppText>
           <AppText variant="body" muted align="center">
-            New people join every day. Try another category.
+            {tr('New people join every day. Try another category.')}
           </AppText>
-          <AppButton label="Back to Explore" onPress={onClose} style={styles.emptyButton} />
+          <AppButton label={tr('Back to Explore')} onPress={onClose} style={styles.emptyButton} />
         </View>
       )}
 

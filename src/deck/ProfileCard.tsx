@@ -1,16 +1,17 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { AppText } from "../components/AppText";
-import { Skeleton } from "../components/Skeleton";
-import { mainPhotoUri, mediaOf } from "../profiles/data";
-import { isLocked } from "../profiles/extras";
-import { profileKm } from "../profiles/session";
-import type { Profile } from "../profiles/types";
-import { formatDistance, useDistanceUnit } from "../settings/units";
-import { useTheme } from "../theme/ThemeProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText } from '../components/AppText';
+import { Skeleton } from '../components/Skeleton';
+import { mainPhotoUri, mediaOf } from '../profiles/data';
+import { isLocked } from '../profiles/extras';
+import { profileKm } from '../profiles/session';
+import type { Profile } from '../profiles/types';
+import { formatDistance, useDistanceUnit } from '../settings/units';
+import { useTheme } from '../theme/ThemeProvider';
+import { tr } from '../i18n/i18n';
 
 // The same profile card as on the Swipe page, without swiping (used on a match's profile page).
 // Tap → full-screen photos.
@@ -47,42 +48,23 @@ export function ProfileCard({ profile, height, onOpen }: Props) {
       />
       {locked ? (
         <View style={[styles.lockWrap, styles.noTouch]}>
-          <View
-            style={[
-              styles.lockCircle,
-              { backgroundColor: colors.photoScrimTop },
-            ]}
-          >
+          <View style={[styles.lockCircle, { backgroundColor: colors.photoScrimTop }]}>
             <Ionicons name="lock-closed" size={30} color={colors.onPhoto} />
           </View>
-          <AppText
-            variant="bodySmall"
-            weight="semibold"
-            color={colors.onPhoto}
-            align="center"
-          >
-            {profile.name} hasn’t shared{" "}
-            {profile.gender === "male" ? "his" : "her"} photos yet
+          <AppText variant="bodySmall" weight="semibold" color={colors.onPhoto} align="center">
+            {profile.gender === 'male'
+              ? tr('{name} hasn’t shared his photos yet', { name: profile.name })
+              : tr('{name} hasn’t shared her photos yet', { name: profile.name })}
           </AppText>
         </View>
       ) : null}
       <LinearGradient
-        colors={[
-          "transparent",
-          colors.photoScrimMiddle,
-          colors.photoScrimBottom,
-        ]}
+        colors={['transparent', colors.photoScrimMiddle, colors.photoScrimBottom]}
         locations={[0.5, 0.7, 1]}
         style={[StyleSheet.absoluteFill, styles.noTouch]}
       />
       {!locked && count > 1 ? (
-        <View
-          style={[
-            styles.countPill,
-            styles.noTouch,
-            { backgroundColor: colors.photoScrimTop },
-          ]}
-        >
+        <View style={[styles.countPill, styles.noTouch, { backgroundColor: colors.photoScrimTop }]}>
           <Ionicons name="images-outline" size={14} color={colors.onPhoto} />
           <AppText variant="caption" weight="semibold" color={colors.onPhoto}>
             1/{count}
@@ -91,46 +73,23 @@ export function ProfileCard({ profile, height, onOpen }: Props) {
       ) : null}
       <View style={[styles.info, styles.noTouch]}>
         <View style={styles.nameRow}>
-          <AppText
-            variant="display"
-            color={colors.onPhoto}
-            numberOfLines={1}
-            style={styles.shrink}
-          >
+          <AppText variant="display" color={colors.onPhoto} numberOfLines={1} style={styles.shrink}>
             {profile.name}, {profile.age}
           </AppText>
-          {profile.verified ? (
-            <Ionicons
-              name="checkmark-circle"
-              size={26}
-              color={colors.verified}
-            />
-          ) : null}
+          {profile.verified ? <Ionicons name="checkmark-circle" size={26} color={colors.verified} /> : null}
         </View>
         {profile.profession ? (
           <View style={styles.line}>
-            <Ionicons
-              name="briefcase-outline"
-              size={16}
-              color={colors.onPhotoMuted}
-            />
-            <AppText
-              variant="body"
-              color={colors.onPhotoMuted}
-              numberOfLines={1}
-            >
-              {profile.profession}
+            <Ionicons name="briefcase-outline" size={16} color={colors.onPhotoMuted} />
+            <AppText variant="body" color={colors.onPhotoMuted} numberOfLines={1}>
+              {tr(profile.profession)}
             </AppText>
           </View>
         ) : null}
         <View style={styles.line}>
-          <Ionicons
-            name="location-outline"
-            size={16}
-            color={colors.onPhotoMuted}
-          />
+          <Ionicons name="location-outline" size={16} color={colors.onPhotoMuted} />
           <AppText variant="body" color={colors.onPhotoMuted}>
-            {formatDistance(profileKm(profile), unit)} away
+            {tr('{v} away', { v: formatDistance(profileKm(profile), unit) })}
           </AppText>
         </View>
       </View>
@@ -140,24 +99,24 @@ export function ProfileCard({ profile, height, onOpen }: Props) {
 
 const styles = StyleSheet.create({
   noTouch: {
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   card: {
     marginHorizontal: 12,
     borderRadius: 22,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   shrink: {
     flexShrink: 1,
   },
   lockWrap: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
     paddingHorizontal: 40,
     paddingBottom: 80,
@@ -166,35 +125,35 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countPill: {
-    position: "absolute",
+    position: 'absolute',
     top: 12,
     right: 12,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 5,
     borderRadius: 12,
     paddingHorizontal: 9,
     paddingVertical: 4,
   },
   info: {
-    position: "absolute",
+    position: 'absolute',
     left: 18,
     right: 18,
     bottom: 18,
     gap: 4,
   },
   nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   line: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
 });

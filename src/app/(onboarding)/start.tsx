@@ -1,22 +1,17 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useRef } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../auth/AuthProvider";
-import { displayName } from "../../auth/types";
-import { AppButton } from "../../components/AppButton";
-import { AppText } from "../../components/AppText";
-import { useOnboarding } from "../../onboarding/OnboardingProvider";
-import {
-  answeredCount,
-  FINISH_HREF,
-  firstUnanswered,
-  STEP_IDS,
-  stepHref,
-} from "../../onboarding/steps";
-import { useTheme } from "../../theme/ThemeProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useRef } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../auth/AuthProvider';
+import { displayName } from '../../auth/types';
+import { AppButton } from '../../components/AppButton';
+import { AppText } from '../../components/AppText';
+import { useOnboarding } from '../../onboarding/OnboardingProvider';
+import { answeredCount, FINISH_HREF, firstUnanswered, stepHref, STEP_IDS } from '../../onboarding/steps';
+import { useTheme } from '../../theme/ThemeProvider';
+import { tr } from '../../i18n/i18n';
 
 // First onboarding screen: welcome + Get started (or Continue where you left off).
 export default function OnboardingStartScreen() {
@@ -40,24 +35,12 @@ export default function OnboardingStartScreen() {
       opening.current = false;
     }, 800);
     const next = firstUnanswered(draft);
-    if (__DEV__)
-      console.log(
-        `[onboarding] start · ${done}/${STEP_IDS.length} answered → ${next ?? "finish"}`,
-      );
+    if (__DEV__) console.log(`[onboarding] start · ${done}/${STEP_IDS.length} answered → ${next ?? 'finish'}`);
     router.push(next ? stepHref(next) : FINISH_HREF);
   };
 
   return (
-    <View
-      style={[
-        styles.screen,
-        {
-          backgroundColor: colors.bg,
-          paddingTop: insets.top + 24,
-          paddingBottom: insets.bottom + 20,
-        },
-      ]}
-    >
+    <View style={[styles.screen, { backgroundColor: colors.bg, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.body}>
         <LinearGradient
           colors={[colors.gradientStart, colors.gradientEnd]}
@@ -68,30 +51,22 @@ export default function OnboardingStartScreen() {
           <Ionicons name="sparkles" size={44} color={colors.onPrimary} />
         </LinearGradient>
 
-        <AppText variant="display">Hi {name}, welcome to Yonder</AppText>
+        <AppText variant="display">{tr('Hi {name}, welcome to Yonder', { name })}</AppText>
         <AppText variant="body" muted>
           {resuming
-            ? `You’ve answered ${done} of ${STEP_IDS.length} questions. Let’s finish your profile.`
-            : "Tell us a little about yourself and we’ll show you great people nearby. It takes about 2 minutes."}
+            ? tr('You’ve answered {done} of {length} questions. Let’s finish your profile.', { done, length: STEP_IDS.length })
+            : tr('Tell us a little about yourself and we’ll show you great people nearby. It takes about 2 minutes.')}
         </AppText>
         <AppText variant="bodySmall" muted>
-          Signed in as {session.user.email}
+          {tr('Signed in as {email}', { email: session.user.email })}
         </AppText>
       </View>
 
       <View style={styles.actions}>
-        <AppButton
-          label={resuming ? "Continue where you left off" : "Get started"}
-          onPress={start}
-        />
-        <Pressable
-          onPress={signOut}
-          accessibilityRole="button"
-          hitSlop={8}
-          style={styles.logout}
-        >
+        <AppButton label={resuming ? tr('Continue where you left off') : tr('Get started')} onPress={start} />
+        <Pressable onPress={signOut} accessibilityRole="button" hitSlop={8} style={styles.logout}>
           <AppText variant="bodySmall" weight="semibold" muted>
-            Not you? Log out
+            {tr('Not you? Log out')}
           </AppText>
         </Pressable>
       </View>
@@ -106,22 +81,22 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: 'center',
     gap: 12,
   },
   badge: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   actions: {
     gap: 6,
   },
   logout: {
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 10,
   },
 });

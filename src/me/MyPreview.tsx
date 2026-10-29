@@ -1,38 +1,18 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { useState, type ComponentProps, type ReactNode } from "react";
-import {
-    ScrollView,
-    StyleSheet,
-    useWindowDimensions,
-    View,
-    type NativeScrollEvent,
-    type NativeSyntheticEvent,
-} from "react-native";
-import { AppText } from "../components/AppText";
-import {
-    DRINKING_OPTIONS,
-    INTENT_OPTIONS,
-    labelOf,
-    MARITAL_OPTIONS,
-    RELIGION_OPTIONS,
-    SMOKING_OPTIONS,
-} from "../onboarding/options";
-import type { ProfileDraft } from "../onboarding/types";
-import { useTheme } from "../theme/ThemeProvider";
-import {
-    ageOf,
-    fieldValue,
-    heightText,
-    interestChips,
-    nationalityText,
-    traitChips,
-} from "./myProfile";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useState, type ComponentProps, type ReactNode } from 'react';
+import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import { AppText } from '../components/AppText';
+import { DRINKING_OPTIONS, INTENT_OPTIONS, labelOf, MARITAL_OPTIONS, RELIGION_OPTIONS, SMOKING_OPTIONS } from '../onboarding/options';
+import type { ProfileDraft } from '../onboarding/types';
+import { useTheme } from '../theme/ThemeProvider';
+import { ageOf, fieldValue, heightText, interestChips, nationalityText, traitChips } from './myProfile';
+import { tr } from '../i18n/i18n';
 
 // "Preview": your profile the way other people see it on Swipe (same card and sections).
 
-type IconName = ComponentProps<typeof Ionicons>["name"];
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 const SIDE = 12;
 
@@ -49,139 +29,63 @@ export function MyPreview({ me }: { me: ProfileDraft }) {
     setIndex(Math.round(e.nativeEvent.contentOffset.x / cardW));
   };
 
-  const intentIcon =
-    INTENT_OPTIONS.find((o) => o.value === me.intent)?.icon ?? "heart-outline";
+  const intentIcon = INTENT_OPTIONS.find((o) => o.value === me.intent)?.icon ?? 'heart-outline';
   const about: { icon: IconName; label: string }[] = [
-    { icon: "resize-outline" as IconName, label: heightText(me.heightCm) },
-    {
-      icon: "sparkles-outline" as IconName,
-      label:
-        me.religion === "prefer_not"
-          ? ""
-          : labelOf(RELIGION_OPTIONS, me.religion),
-    },
-    {
-      icon: "flame-outline" as IconName,
-      label: me.smoking
-        ? `Smoking: ${labelOf(SMOKING_OPTIONS, me.smoking).toLowerCase()}`
-        : "",
-    },
-    {
-      icon: "wine-outline" as IconName,
-      label: me.drinking
-        ? `Alcohol: ${labelOf(DRINKING_OPTIONS, me.drinking).toLowerCase()}`
-        : "",
-    },
-    {
-      icon: "earth-outline" as IconName,
-      label: nationalityText(me.nationalities),
-    },
+    { icon: 'resize-outline' as IconName, label: heightText(me.heightCm) },
+    { icon: 'sparkles-outline' as IconName, label: me.religion === 'prefer_not' ? '' : labelOf(RELIGION_OPTIONS, me.religion) },
+    { icon: 'flame-outline' as IconName, label: me.smoking ? tr('Smoking: {v}', { v: labelOf(SMOKING_OPTIONS, me.smoking).toLowerCase() }) : '' },
+    { icon: 'wine-outline' as IconName, label: me.drinking ? tr('Alcohol: {v}', { v: labelOf(DRINKING_OPTIONS, me.drinking).toLowerCase() }) : '' },
+    { icon: 'earth-outline' as IconName, label: nationalityText(me.nationalities) },
   ].filter((a) => a.label);
   const interests = interestChips(me);
   const traits = traitChips(me);
 
   return (
     <View style={styles.wrap}>
-      <View
-        style={[
-          styles.card,
-          { width: cardW, height: cardH, backgroundColor: colors.surface },
-        ]}
-      >
+      <View style={[styles.card, { width: cardW, height: cardH, backgroundColor: colors.surface }]}>
         {photos.length ? (
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={onScrollEnd}
-          >
+          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onScrollEnd}>
             {photos.map((uri) => (
-              <Image
-                key={uri}
-                source={{ uri }}
-                style={{ width: cardW, height: cardH }}
-                contentFit="cover"
-                transition={180}
-              />
+              <Image key={uri} source={{ uri }} style={{ width: cardW, height: cardH }} contentFit="cover" transition={180} />
             ))}
           </ScrollView>
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.center]}>
-            <Ionicons
-              name="image-outline"
-              size={44}
-              color={colors.textSubtle}
-            />
+            <Ionicons name="image-outline" size={44} color={colors.textSubtle} />
           </View>
         )}
         {photos.length > 1 ? (
           <View style={[styles.bars, styles.noTouch]}>
             {photos.map((uri, i) => (
-              <View
-                key={uri}
-                style={[
-                  styles.bar,
-                  {
-                    backgroundColor:
-                      i === index ? colors.onPhoto : colors.photoScrimTop,
-                  },
-                ]}
-              />
+              <View key={uri} style={[styles.bar, { backgroundColor: i === index ? colors.onPhoto : colors.photoScrimTop }]} />
             ))}
           </View>
         ) : null}
         <LinearGradient
-          colors={[
-            "transparent",
-            colors.photoScrimMiddle,
-            colors.photoScrimBottom,
-          ]}
+          colors={['transparent', colors.photoScrimMiddle, colors.photoScrimBottom]}
           locations={[0.55, 0.72, 1]}
           style={[StyleSheet.absoluteFill, styles.noTouch]}
         />
         <View style={[styles.info, styles.noTouch]}>
           <View style={styles.nameRow}>
-            <AppText
-              variant="display"
-              color={colors.onPhoto}
-              numberOfLines={1}
-              style={styles.shrink}
-            >
-              {me.firstName ?? "You"}
-              {age ? `, ${age}` : ""}
+            <AppText variant="display" color={colors.onPhoto} numberOfLines={1} style={styles.shrink}>
+              {me.firstName ?? tr('You')}
+              {age ? `, ${age}` : ''}
             </AppText>
-            {me.photoVerified ? (
-              <Ionicons
-                name="checkmark-circle"
-                size={26}
-                color={colors.verified}
-              />
-            ) : null}
+            {me.photoVerified ? <Ionicons name="checkmark-circle" size={26} color={colors.verified} /> : null}
           </View>
           {me.profession ? (
             <View style={styles.line}>
-              <Ionicons
-                name="briefcase-outline"
-                size={16}
-                color={colors.onPhotoMuted}
-              />
-              <AppText
-                variant="body"
-                color={colors.onPhotoMuted}
-                numberOfLines={1}
-              >
-                {me.profession}
+              <Ionicons name="briefcase-outline" size={16} color={colors.onPhotoMuted} />
+              <AppText variant="body" color={colors.onPhotoMuted} numberOfLines={1}>
+                {tr(me.profession)}
               </AppText>
             </View>
           ) : null}
           <View style={styles.line}>
-            <Ionicons
-              name="location-outline"
-              size={16}
-              color={colors.onPhotoMuted}
-            />
+            <Ionicons name="location-outline" size={16} color={colors.onPhotoMuted} />
             <AppText variant="body" color={colors.onPhotoMuted}>
-              Nearby
+              {tr('Nearby')}
             </AppText>
           </View>
         </View>
@@ -190,26 +94,21 @@ export function MyPreview({ me }: { me: ProfileDraft }) {
       {me.intent ? (
         <Section>
           <View style={styles.row}>
-            <View
-              style={[
-                styles.intentIcon,
-                { backgroundColor: colors.primarySoft },
-              ]}
-            >
+            <View style={[styles.intentIcon, { backgroundColor: colors.primarySoft }]}>
               <Ionicons name={intentIcon} size={22} color={colors.primary} />
             </View>
             <View style={styles.flex}>
               <AppText variant="caption" muted>
-                LOOKING FOR
+                {tr('LOOKING FOR')}
               </AppText>
-              <AppText variant="heading">{fieldValue(me, "intent")}</AppText>
+              <AppText variant="heading">{fieldValue(me, 'intent')}</AppText>
             </View>
           </View>
         </Section>
       ) : null}
 
       {me.bio ? (
-        <Section title="Bio" icon="chatbubble-outline">
+        <Section title={tr('Bio')} icon="chatbubble-outline">
           <AppText variant="body">{me.bio}</AppText>
         </Section>
       ) : null}
@@ -217,17 +116,13 @@ export function MyPreview({ me }: { me: ProfileDraft }) {
       {me.photoVerified ? (
         <Section>
           <View style={styles.row}>
-            <Ionicons
-              name="shield-checkmark"
-              size={26}
-              color={colors.verified}
-            />
+            <Ionicons name="shield-checkmark" size={26} color={colors.verified} />
             <View style={styles.flex}>
               <AppText variant="body" weight="semibold">
-                Verified profile
+                {tr('Verified profile')}
               </AppText>
               <AppText variant="bodySmall" muted>
-                Your main photo has been verified.
+                {tr('Your main photo has been verified.')}
               </AppText>
             </View>
           </View>
@@ -235,98 +130,67 @@ export function MyPreview({ me }: { me: ProfileDraft }) {
       ) : null}
 
       {me.maritalStatus || me.hasChildren ? (
-        <Section title="Marital status & children" icon="ribbon-outline">
+        <Section title={tr('Marital status & children')} icon="ribbon-outline">
           <View style={styles.chips}>
-            {me.maritalStatus ? (
-              <Chip
-                icon="ribbon-outline"
-                label={labelOf(MARITAL_OPTIONS, me.maritalStatus)}
-              />
-            ) : null}
-            {me.hasChildren ? (
-              <Chip
-                icon="people-outline"
-                label={
-                  me.hasChildren === "yes" ? "Has children" : "No children"
-                }
-              />
-            ) : null}
+            {me.maritalStatus ? <Chip icon="ribbon-outline" label={labelOf(MARITAL_OPTIONS, me.maritalStatus)} /> : null}
+            {me.hasChildren ? <Chip icon="people-outline" label={me.hasChildren === 'yes' ? tr('Has children') : tr('No children')} /> : null}
           </View>
         </Section>
       ) : null}
 
       {about.length ? (
-        <Section title="About" icon="person-outline">
+        <Section title={tr('About')} icon="person-outline">
           <View style={styles.chips}>
             {about.map((a) => (
-              <Chip key={a.icon} icon={a.icon} label={a.label} />
+              <Chip key={a.icon} icon={a.icon} label={tr(a.label)} />
             ))}
           </View>
         </Section>
       ) : null}
 
       {interests.length ? (
-        <Section title="Interests" icon="sparkles-outline">
+        <Section title={tr('Interests')} icon="sparkles-outline">
           <View style={styles.chips}>
             {interests.map((c) => (
-              <Chip key={c.key} label={`${c.emoji} ${c.label}`} />
+              <Chip key={c.key} label={`${c.emoji} ${tr(c.label)}`} />
             ))}
           </View>
         </Section>
       ) : null}
 
       {traits.length ? (
-        <Section title="Personality" icon="happy-outline">
+        <Section title={tr('Personality')} icon="happy-outline">
           <View style={styles.chips}>
             {traits.map((c) => (
-              <Chip key={c.key} label={`${c.emoji} ${c.label}`} />
+              <Chip key={c.key} label={`${c.emoji} ${tr(c.label)}`} />
             ))}
           </View>
         </Section>
       ) : null}
 
       {me.education || me.profession ? (
-        <Section title="Education and career" icon="school-outline">
+        <Section title={tr('Education and career')} icon="school-outline">
           <View style={styles.chips}>
-            {me.education ? (
-              <Chip icon="school-outline" label={fieldValue(me, "education")} />
-            ) : null}
-            {me.profession ? (
-              <Chip icon="briefcase-outline" label={me.profession} />
-            ) : null}
+            {me.education ? <Chip icon="school-outline" label={fieldValue(me, 'education')} /> : null}
+            {me.profession ? <Chip icon="briefcase-outline" label={tr(me.profession)} /> : null}
           </View>
         </Section>
       ) : null}
 
       <AppText variant="caption" muted align="center" style={styles.note}>
-        This is how people see you on Swipe.
+        {tr('This is how people see you on Swipe.')}
       </AppText>
     </View>
   );
 }
 
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title?: string;
-  icon?: IconName;
-  children: ReactNode;
-}) {
+function Section({ title, icon, children }: { title?: string; icon?: IconName; children: ReactNode }) {
   const colors = useTheme();
   return (
-    <View
-      style={[
-        styles.section,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
+    <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {title ? (
         <View style={styles.row}>
-          {icon ? (
-            <Ionicons name={icon} size={18} color={colors.primary} />
-          ) : null}
+          {icon ? <Ionicons name={icon} size={18} color={colors.primary} /> : null}
           <AppText variant="heading">{title}</AppText>
         </View>
       ) : null}
@@ -338,15 +202,8 @@ function Section({
 function Chip({ label, icon }: { label: string; icon?: IconName }) {
   const colors = useTheme();
   return (
-    <View
-      style={[
-        styles.chip,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      {icon ? (
-        <Ionicons name={icon} size={15} color={colors.textMuted} />
-      ) : null}
+    <View style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {icon ? <Ionicons name={icon} size={15} color={colors.textMuted} /> : null}
       <AppText variant="bodySmall" weight="medium">
         {label}
       </AppText>
@@ -367,22 +224,22 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   center: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noTouch: {
-    pointerEvents: "none",
+    pointerEvents: 'none',
   },
   card: {
     borderRadius: 22,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   bars: {
-    position: "absolute",
+    position: 'absolute',
     top: 10,
     left: 10,
     right: 10,
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 4,
   },
   bar: {
@@ -391,20 +248,20 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   info: {
-    position: "absolute",
+    position: 'absolute',
     left: 18,
     right: 18,
     bottom: 18,
     gap: 4,
   },
   nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   line: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   section: {
@@ -414,25 +271,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   intentIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chips: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     borderWidth: 1,
     borderRadius: 18,

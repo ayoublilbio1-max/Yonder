@@ -1,28 +1,17 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, StyleSheet, View } from "react-native";
-import type { AuthUser } from "../auth/types";
-import { useTheme } from "../theme/ThemeProvider";
-import { AppText } from "./AppText";
-import { Sheet } from "./Sheet";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, StyleSheet, View } from 'react-native';
+import type { AuthUser } from '../auth/types';
+import { useTheme } from '../theme/ThemeProvider';
+import { AppText } from './AppText';
+import { Sheet } from './Sheet';
+import { tr } from '../i18n/i18n';
 
 // Backup when real Google sign-in isn’t available: looks like Google's account chooser,
 // with demo accounts. The tester is never stuck.
 
 const DEMO_ACCOUNTS: AuthUser[] = [
-  {
-    id: "gdemo_emma",
-    name: "Emma Clarke",
-    email: "emma.clarke.demo@gmail.com",
-    photo: null,
-    method: "google-demo",
-  },
-  {
-    id: "gdemo_lucas",
-    name: "Lucas Bauer",
-    email: "lucas.bauer.demo@gmail.com",
-    photo: null,
-    method: "google-demo",
-  },
+  { id: 'gdemo_emma', name: 'Emma Clarke', email: 'emma.clarke.demo@gmail.com', photo: null, method: 'google-demo' },
+  { id: 'gdemo_lucas', name: 'Lucas Bauer', email: 'lucas.bauer.demo@gmail.com', photo: null, method: 'google-demo' },
 ];
 
 type Props = {
@@ -32,12 +21,7 @@ type Props = {
   onUseEmail: () => void;
 };
 
-export function GoogleDemoChooser({
-  visible,
-  onClose,
-  onPick,
-  onUseEmail,
-}: Props) {
+export function GoogleDemoChooser({ visible, onClose, onPick, onUseEmail }: Props) {
   const colors = useTheme();
   const avatarColors = [colors.primary, colors.boost];
 
@@ -46,22 +30,17 @@ export function GoogleDemoChooser({
       <View style={styles.header}>
         <Ionicons name="logo-google" size={26} color={colors.text} />
         <AppText variant="heading" align="center">
-          Choose an account
+          {tr('Choose an account')}
         </AppText>
         <AppText variant="bodySmall" muted align="center">
-          to continue to Yonder
+          {tr('to continue to Yonder')}
         </AppText>
       </View>
 
       <View style={[styles.note, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons
-          name="information-circle-outline"
-          size={18}
-          color={colors.primary}
-        />
+        <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
         <AppText variant="caption" style={styles.flex}>
-          Google sign-in isn’t available on this phone right now, so you can
-          continue with a demo account.
+          {tr('Google sign-in isn’t available on this phone right now, so you can continue with a demo account.')}
         </AppText>
       </View>
 
@@ -80,17 +59,8 @@ export function GoogleDemoChooser({
               { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 },
             ]}
           >
-            <View
-              style={[
-                styles.avatar,
-                { backgroundColor: avatarColors[i % avatarColors.length] },
-              ]}
-            >
-              <AppText
-                variant="body"
-                weight="semibold"
-                color={colors.onPrimary}
-              >
+            <View style={[styles.avatar, { backgroundColor: avatarColors[i % avatarColors.length] }]}>
+              <AppText variant="body" weight="semibold" color={colors.onPrimary}>
                 {account.name.charAt(0)}
               </AppText>
             </View>
@@ -114,7 +84,7 @@ export function GoogleDemoChooser({
             <Ionicons name="person-add-outline" size={20} color={colors.text} />
           </View>
           <AppText variant="body" weight="medium">
-            Use your email instead
+            {tr('Use your email instead')}
           </AppText>
         </Pressable>
       </View>
@@ -124,20 +94,20 @@ export function GoogleDemoChooser({
 
 const styles = StyleSheet.create({
   header: {
-    alignItems: "center",
+    alignItems: 'center',
     gap: 2,
   },
   note: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    alignItems: "flex-start",
+    alignItems: 'flex-start',
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -146,8 +116,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flex: {
     flex: 1,

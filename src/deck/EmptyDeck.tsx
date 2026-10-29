@@ -1,19 +1,13 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { StyleSheet, View } from "react-native";
-import { AppButton } from "../components/AppButton";
-import { AppText } from "../components/AppText";
-import { useToast } from "../components/Toast";
-import {
-  AGE_MAX,
-  AGE_MIN,
-  ageLabel,
-  distanceLabel,
-  widerAge,
-  widerDistance,
-} from "../filters/filters";
-import { useDistanceUnit } from "../settings/units";
-import { useTheme } from "../theme/ThemeProvider";
-import { useSwipe } from "./SwipeProvider";
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, View } from 'react-native';
+import { AppButton } from '../components/AppButton';
+import { AppText } from '../components/AppText';
+import { useToast } from '../components/Toast';
+import { useDistanceUnit } from '../settings/units';
+import { useTheme } from '../theme/ThemeProvider';
+import { AGE_MAX, AGE_MIN, ageLabel, distanceLabel, widerAge, widerDistance } from '../filters/filters';
+import { useSwipe } from './SwipeProvider';
+import { tr } from '../i18n/i18n';
 
 // Rule 9.5: never a dead end — three ways to see people again.
 export function EmptyDeck() {
@@ -25,11 +19,7 @@ export function EmptyDeck() {
 
   const rewind = () => {
     const count = rewindPassed();
-    toast.show(
-      count > 0
-        ? "Showing the profiles you passed again"
-        : "You liked everyone here! New people join every day.",
-    );
+    toast.show(count > 0 ? tr('Showing the profiles you passed again') : tr('You liked everyone here! New people join every day.'));
   };
 
   // Each button really changes the search; when there is nothing left to widen, it rewinds instead.
@@ -37,22 +27,16 @@ export function EmptyDeck() {
     if (f.distance === null) return rewind();
     const next = widerDistance(f);
     setFilters(next);
-    toast.show(`Distance: ${distanceLabel(next.distance, unit).toLowerCase()}`);
-    if (__DEV__)
-      console.log(
-        `[deck] empty → distance ${f.distance} → ${next.distance ?? "any"}`,
-      );
+    toast.show(tr('Distance: {v}', { v: distanceLabel(next.distance, unit).toLowerCase() }));
+    if (__DEV__) console.log(`[deck] empty → distance ${f.distance} → ${next.distance ?? 'any'}`);
   };
 
   const moreAge = () => {
     if (f.ageMin === AGE_MIN && f.ageMax === AGE_MAX) return rewind();
     const next = widerAge(f);
     setFilters(next);
-    toast.show(`Age: ${ageLabel(next.ageMin, next.ageMax)}`);
-    if (__DEV__)
-      console.log(
-        `[deck] empty → age ${ageLabel(f.ageMin, f.ageMax)} → ${ageLabel(next.ageMin, next.ageMax)}`,
-      );
+    toast.show(tr('Age: {v}', { v: ageLabel(next.ageMin, next.ageMax) }));
+    if (__DEV__) console.log(`[deck] empty → age ${ageLabel(f.ageMin, f.ageMax)} → ${ageLabel(next.ageMin, next.ageMax)}`);
   };
 
   return (
@@ -61,25 +45,21 @@ export function EmptyDeck() {
         <Ionicons name="people-outline" size={44} color={colors.primary} />
       </View>
       <AppText variant="title" align="center">
-        You’ve seen everyone nearby
+        {tr('You’ve seen everyone nearby')}
       </AppText>
       <AppText variant="body" muted align="center">
-        Change your search to meet more people.
+        {tr('Change your search to meet more people.')}
       </AppText>
       <View style={styles.actions}>
+        <AppButton label={tr('Increase distance')} icon="navigate-outline" onPress={moreDistance} />
         <AppButton
-          label="Increase distance"
-          icon="navigate-outline"
-          onPress={moreDistance}
-        />
-        <AppButton
-          label="Widen age range"
+          label={tr('Widen age range')}
           icon="options-outline"
           variant="secondary"
           onPress={moreAge}
         />
         <AppButton
-          label="Rewind passed profiles"
+          label={tr('Rewind passed profiles')}
           icon="refresh-outline"
           variant="secondary"
           onPress={rewind}
@@ -92,8 +72,8 @@ export function EmptyDeck() {
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 28,
     gap: 10,
   },
@@ -101,12 +81,12 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 6,
   },
   actions: {
-    alignSelf: "stretch",
+    alignSelf: 'stretch',
     gap: 10,
     marginTop: 18,
   },
