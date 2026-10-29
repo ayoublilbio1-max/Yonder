@@ -1,15 +1,24 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useState, type ComponentProps } from "react";
 import {
+  useEffect,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import {
+  AppState,
+  Linking,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   View,
   type LayoutChangeEvent,
 } from "react-native";
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -21,8 +30,37 @@ import { AppText } from "../components/AppText";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { FeedbackModal } from "../components/FeedbackModal";
 import { PressableScale } from "../components/PressableScale";
-import { APP_NAME, APP_VERSION, DEVELOPER } from "../constants/app";
-import { DURATION, EASE } from "../motion/ease";
+import { useToast } from "../components/Toast";
+import { APP_NAME, APP_VERSION, DEVELOPER, HOME_URL } from "../constants/app";
+import { useSwipe } from "../deck/SwipeProvider";
+import { DURATION, EASE, EASE_OUT } from "../motion/ease";
+import {
+  askPermission,
+  cancelScheduled,
+  permissionState,
+  type PermissionState,
+} from "../notify/notify";
+import {
+  NOTIFY_ROWS,
+  setNotifyPrefs,
+  useNotifyPrefs,
+  type NotifyPrefs,
+} from "../notify/prefs";
+import { deletePhotoFile } from "../onboarding/photos";
+import {
+  clearPasscode,
+  getPasscode,
+  usePasscodeOn,
+} from "../security/passcode";
+import { PasscodeSetup, type PasscodeMode } from "../security/PasscodeSetup";
+import { DEMO_CONTACTS } from "../settings/demoContacts";
+import {
+  BlockContactsPage,
+  BlockedProfilesPage,
+  PurchasesPage,
+  visibilityLabel,
+  VisibilitySheet,
+} from "../settings/SettingsPages";
 import {
   setDistanceUnit,
   useDistanceUnit,
@@ -31,7 +69,10 @@ import {
 import { playSound, setSoundsEnabled, useSoundsEnabled } from "../sound/sounds";
 import { useTheme, useThemeMode, type ThemeMode } from "../theme/ThemeProvider";
 
+// Settings (Muzz order, Yonder look): account · notifications · app settings · privacy · help · delete.
+
 type IconName = ComponentProps<typeof Ionicons>["name"];
+type PageName = "blocked" | "contacts" | "purchases" | null;
 
 const APPEARANCE_OPTIONS: { mode: ThemeMode; label: string; icon: IconName }[] =
   [
@@ -44,14 +85,76 @@ export default function SettingsScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const toast = useToast();
   const { mode, setMode } = useThemeMode();
-  const { session, signOut } = useAuth();
+  const { session, signOut, deleteAccount } = useAuth();
+  const { saved, setPrivacy, me } = useSwipe();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
+  const [page, setPage] = useState<PageName>(null);
+  const [passMode, setPassMode] = useState<PasscodeMode | null>(null);
+  const [permission, setPermission] = useState<PermissionState>("undetermined");
   const soundsOn = useSoundsEnabled();
   const unit = useDistanceUnit();
+  const prefs = useNotifyPrefs();
 
   const user = session?.user;
+  const userId = user?.id ?? "";
+  const passcodeOn = usePasscodeOn(userId);
+
+  // Read the passcode state and Android's notification permission (again when you come back
+  // from the phone's settings).
+  useEffect(() => {
+    if (userId) getPasscode(userId);
+    const read = () => permissionState().then(setPermission);
+    read();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") read();
+    });
+    return () => sub.remove();
+  }, [userId]);
+
+  const toggleNotifications = async (on: boolean) => {
+    setNotifyPrefs({ enabled: on });
+    if (on) {
+      const ok = await askPermission();
+      setPermission(ok ? "granted" : await permissionState());
+    } else {
+      await cancelScheduled();
+    }
+  };
+
+  const blockedCount = saved.blocked.filter((id) => {
+    const u = saved.unmatched[id];
+    return (
+      !u ||
+      (u.by === "me" && (u.reason === "block" || u.reason.startsWith("report")))
+    );
+  }).length;
+
+  const shareLink = async () => {
+    const slug = (me.firstName ?? "me")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    try {
+      await Share.share({
+        message: `See my profile on ${APP_NAME}: ${HOME_URL}?u=${slug}`,
+      });
+      if (__DEV__) console.log("[privacy] profile link shared");
+    } catch (e) {
+      if (__DEV__) console.log("[privacy] share failed", String(e));
+    }
+  };
+
+  const doDelete = async () => {
+    setDeleteOpen(false);
+    (me.photos ?? []).forEach(deletePhotoFile);
+    if (userId) await clearPasscode(userId);
+    await cancelScheduled();
+    await deleteAccount();
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
@@ -75,17 +178,11 @@ export default function SettingsScreen() {
           { paddingBottom: insets.bottom + 32 },
         ]}
       >
+        {/* ---------- account ---------- */}
         {user ? (
           <>
-            <AppText variant="label" muted style={styles.sectionTitle}>
-              ACCOUNT
-            </AppText>
-            <View
-              style={[
-                styles.group,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
+            <SectionTitle>ACCOUNT</SectionTitle>
+            <Group>
               <View style={styles.row}>
                 {user.photo ? (
                   <Image
@@ -114,53 +211,67 @@ export default function SettingsScreen() {
                   </AppText>
                 </View>
               </View>
-              <PressableScale
+              <Row
+                first={false}
+                icon="log-out-outline"
+                danger
+                title="Log out"
                 onPress={() => setLogoutOpen(true)}
-                accessibilityRole="button"
-                scaleTo={0.99}
-                dimTo={0.7}
-                style={[
-                  styles.row,
-                  {
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.iconCircle,
-                    { backgroundColor: colors.dangerSoft },
-                  ]}
-                >
-                  <Ionicons
-                    name="log-out-outline"
-                    size={20}
-                    color={colors.danger}
-                  />
-                </View>
-                <AppText
-                  variant="body"
-                  weight="medium"
-                  color={colors.danger}
-                  style={styles.rowText}
-                >
-                  Log out
-                </AppText>
-              </PressableScale>
-            </View>
+              />
+            </Group>
           </>
         ) : null}
 
-        <AppText variant="label" muted style={styles.sectionTitle}>
-          APPEARANCE
-        </AppText>
-        <View
-          style={[
-            styles.group,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        {/* ---------- notifications ---------- */}
+        <SectionTitle>NOTIFICATIONS</SectionTitle>
+        <Group>
+          <SwitchRow
+            first
+            icon="notifications-outline"
+            title="Notifications"
+            text="Stay up to date with new likes, matches and messages"
+            value={prefs.enabled}
+            onChange={toggleNotifications}
+          />
+          {prefs.enabled && permission === "denied" ? (
+            <Row
+              icon="alert-circle-outline"
+              title="Blocked in your phone settings"
+              text="Tap to allow notifications for Yonder"
+              danger
+              onPress={() => Linking.openSettings().catch(() => {})}
+            />
+          ) : null}
+          {prefs.enabled ? (
+            <Animated.View
+              entering={FadeIn.duration(DURATION.quick + 60).easing(EASE_OUT)}
+            >
+              {NOTIFY_ROWS.map((r) => (
+                <SwitchRow
+                  key={r.key}
+                  small
+                  title={r.title}
+                  text={r.text}
+                  value={prefs[r.key]}
+                  onChange={(v) =>
+                    setNotifyPrefs({ [r.key]: v } as Partial<NotifyPrefs>)
+                  }
+                />
+              ))}
+              <SwitchRow
+                small
+                title="Chat message preview"
+                text="Show the message text in the notification"
+                value={prefs.preview}
+                onChange={(v) => setNotifyPrefs({ preview: v })}
+              />
+            </Animated.View>
+          ) : null}
+        </Group>
+
+        {/* ---------- app settings ---------- */}
+        <SectionTitle>APPEARANCE</SectionTitle>
+        <Group>
           {APPEARANCE_OPTIONS.map((option, i) => {
             const selected = mode === option.mode;
             return (
@@ -191,11 +302,9 @@ export default function SettingsScreen() {
               </PressableScale>
             );
           })}
-        </View>
+        </Group>
 
-        <AppText variant="label" muted style={styles.sectionTitle}>
-          DISTANCE
-        </AppText>
+        <SectionTitle>DISTANCE</SectionTitle>
         <View
           style={[
             styles.group,
@@ -214,101 +323,111 @@ export default function SettingsScreen() {
           <UnitSwitch value={unit} onChange={setDistanceUnit} />
         </View>
 
-        <AppText variant="label" muted style={styles.sectionTitle}>
-          SOUNDS
-        </AppText>
-        <View
-          style={[
-            styles.group,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <PressableScale
-            onPress={() => {
-              setSoundsEnabled(!soundsOn);
-              if (!soundsOn) playSound("purchase");
+        <SectionTitle>APP SETTINGS</SectionTitle>
+        <Group>
+          <SwitchRow
+            first
+            icon={soundsOn ? "volume-high-outline" : "volume-mute-outline"}
+            title="App sounds"
+            text="Matches, boosts and payments"
+            value={soundsOn}
+            onChange={(on) => {
+              setSoundsEnabled(on);
+              if (on) playSound("purchase");
             }}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: soundsOn }}
-            scaleTo={0.99}
-            dimTo={0.7}
-            style={styles.row}
-          >
-            <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: colors.primarySoft },
-              ]}
-            >
-              <Ionicons
-                name={soundsOn ? "volume-high-outline" : "volume-mute-outline"}
-                size={20}
-                color={colors.primary}
-              />
-            </View>
-            <View style={styles.rowText}>
-              <AppText variant="body" weight="medium">
-                App sounds
-              </AppText>
-              <AppText variant="bodySmall" muted>
-                Matches, boosts and payments
-              </AppText>
-            </View>
-            <Switch
-              value={soundsOn}
-              onValueChange={(on) => {
-                setSoundsEnabled(on);
-                if (on) playSound("purchase");
-              }}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.card}
+          />
+          <Row
+            icon="card-outline"
+            title="Manage purchases"
+            text="Review or restore your purchases"
+            onPress={() => setPage("purchases")}
+          />
+          <SwitchRow
+            icon="lock-closed-outline"
+            title="Passcode"
+            text="Ask for a passcode each time you open Yonder"
+            value={passcodeOn}
+            onChange={(on) => setPassMode(on ? "set" : "remove")}
+          />
+          {passcodeOn ? (
+            <Row
+              small
+              title="Change passcode"
+              onPress={() => setPassMode("change")}
             />
-          </PressableScale>
-        </View>
+          ) : null}
+        </Group>
 
-        <AppText variant="label" muted style={styles.sectionTitle}>
-          HELP
-        </AppText>
-        <View
-          style={[
-            styles.group,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <PressableScale
+        {/* ---------- privacy ---------- */}
+        <SectionTitle>PRIVACY</SectionTitle>
+        <Group>
+          <Row
+            first
+            icon="eye-off-outline"
+            title="Who can see my profile"
+            text={visibilityLabel(saved.visibility)}
+            onPress={() => setVisibilityOpen(true)}
+          />
+          <SwitchRow
+            icon="link-outline"
+            title="My profile sharing link"
+            text="Let your profile be shared with a link. Locked photos stay hidden."
+            value={saved.shareLink}
+            onChange={(v) => setPrivacy({ shareLink: v })}
+          />
+          {saved.shareLink ? (
+            <Row small title="Share my profile link" onPress={shareLink} />
+          ) : null}
+          <Row
+            icon="ban-outline"
+            title="Profiles I’ve blocked"
+            text={
+              blockedCount
+                ? `${blockedCount} blocked`
+                : "View and manage everyone you blocked"
+            }
+            onPress={() => setPage("blocked")}
+          />
+          <Row
+            icon="people-outline"
+            title="Block my phone contacts"
+            text={
+              saved.blockedContacts.length
+                ? `${saved.blockedContacts.length} of ${DEMO_CONTACTS.length} contacts blocked`
+                : "They can’t see you on Yonder"
+            }
+            onPress={() => setPage("contacts")}
+          />
+        </Group>
+
+        {/* ---------- help ---------- */}
+        <SectionTitle>HELP</SectionTitle>
+        <Group>
+          <Row
+            first
+            icon="chatbubble-ellipses-outline"
+            title="Feedback"
+            text="Report a bug or tell us what to improve"
             onPress={() => setFeedbackOpen(true)}
-            accessibilityRole="button"
-            scaleTo={0.99}
-            dimTo={0.7}
-            style={styles.row}
-          >
-            <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: colors.primarySoft },
-              ]}
-            >
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={20}
-                color={colors.primary}
+          />
+        </Group>
+
+        {/* ---------- delete ---------- */}
+        {user ? (
+          <>
+            <SectionTitle>MANAGE ACCOUNT</SectionTitle>
+            <Group>
+              <Row
+                first
+                icon="trash-outline"
+                danger
+                title="Delete my Yonder profile"
+                text="Your profile, photos, matches and chats are deleted from this phone"
+                onPress={() => setDeleteOpen(true)}
               />
-            </View>
-            <View style={styles.rowText}>
-              <AppText variant="body" weight="medium">
-                Feedback
-              </AppText>
-              <AppText variant="bodySmall" muted>
-                Report a bug or tell us what to improve
-              </AppText>
-            </View>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.textSubtle}
-            />
-          </PressableScale>
-        </View>
+            </Group>
+          </>
+        ) : null}
 
         <View style={styles.footer}>
           <AppText variant="bodySmall" muted align="center">
@@ -328,6 +447,31 @@ export default function SettingsScreen() {
         visible={feedbackOpen}
         onClose={() => setFeedbackOpen(false)}
       />
+      <VisibilitySheet
+        visible={visibilityOpen}
+        onClose={() => setVisibilityOpen(false)}
+      />
+      <BlockedProfilesPage
+        visible={page === "blocked"}
+        onClose={() => setPage(null)}
+      />
+      <BlockContactsPage
+        visible={page === "contacts"}
+        onClose={() => setPage(null)}
+      />
+      <PurchasesPage
+        visible={page === "purchases"}
+        onClose={() => setPage(null)}
+      />
+      <PasscodeSetup
+        mode={passMode}
+        userId={userId}
+        onClose={() => setPassMode(null)}
+        onDone={(message) => {
+          setPassMode(null);
+          toast.show(message);
+        }}
+      />
       <ConfirmModal
         visible={logoutOpen}
         title="Log out?"
@@ -335,12 +479,176 @@ export default function SettingsScreen() {
         confirmLabel="Log out"
         icon="log-out-outline"
         onCancel={() => setLogoutOpen(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setLogoutOpen(false);
+          await cancelScheduled();
           signOut();
         }}
       />
+      <ConfirmModal
+        visible={deleteOpen}
+        title="Delete your profile?"
+        message="Your profile, photos, matches, chats and purchases are deleted from this phone. You can't undo this."
+        confirmLabel="Delete my profile"
+        icon="trash-outline"
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={doDelete}
+      />
     </View>
+  );
+}
+
+// ---------- small pieces ----------
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <AppText variant="label" muted style={styles.sectionTitle}>
+      {children}
+    </AppText>
+  );
+}
+
+// A rounded group; rows after the first get a thin line on top.
+function Group({ children }: { children: ReactNode }) {
+  const colors = useTheme();
+  return (
+    <View
+      style={[
+        styles.group,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+function Row({
+  icon,
+  title,
+  text,
+  danger,
+  small,
+  first = false,
+  onPress,
+}: {
+  icon?: IconName;
+  title: string;
+  text?: string;
+  danger?: boolean;
+  small?: boolean;
+  first?: boolean;
+  onPress: () => void;
+}) {
+  const colors = useTheme();
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      scaleTo={0.99}
+      dimTo={0.7}
+      style={[
+        styles.row,
+        small && styles.smallRow,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+      ]}
+    >
+      {icon ? (
+        <View
+          style={[
+            styles.iconCircle,
+            {
+              backgroundColor: danger ? colors.dangerSoft : colors.primarySoft,
+            },
+          ]}
+        >
+          <Ionicons
+            name={icon}
+            size={20}
+            color={danger ? colors.danger : colors.primary}
+          />
+        </View>
+      ) : null}
+      <View style={styles.rowText}>
+        <AppText
+          variant="body"
+          weight="medium"
+          color={danger ? colors.danger : colors.text}
+        >
+          {title}
+        </AppText>
+        {text ? (
+          <AppText variant="bodySmall" muted>
+            {text}
+          </AppText>
+        ) : null}
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={colors.textSubtle} />
+    </PressableScale>
+  );
+}
+
+function SwitchRow({
+  icon,
+  title,
+  text,
+  value,
+  small,
+  first = false,
+  onChange,
+}: {
+  icon?: IconName;
+  title: string;
+  text?: string;
+  value: boolean;
+  small?: boolean;
+  first?: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const colors = useTheme();
+  return (
+    <PressableScale
+      onPress={() => onChange(!value)}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      scaleTo={0.99}
+      dimTo={0.7}
+      style={[
+        styles.row,
+        small && styles.smallRow,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+      ]}
+    >
+      {icon ? (
+        <View
+          style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}
+        >
+          <Ionicons name={icon} size={20} color={colors.primary} />
+        </View>
+      ) : null}
+      <View style={styles.rowText}>
+        <AppText variant="body" weight="medium">
+          {title}
+        </AppText>
+        {text ? (
+          <AppText variant="bodySmall" muted>
+            {text}
+          </AppText>
+        ) : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.border, true: colors.primary }}
+        thumbColor={colors.card}
+      />
+    </PressableScale>
   );
 }
 
@@ -443,6 +751,10 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  smallRow: {
+    paddingLeft: 66, // lines up with the text of the rows that have an icon
+    paddingVertical: 12,
   },
   rowText: {
     flex: 1,

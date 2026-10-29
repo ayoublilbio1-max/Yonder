@@ -2,7 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { playSound } from "../sound/sounds";
-import { formatUsd } from "../store/WalletProvider";
+import { formatUsd, useWallet } from "../store/WalletProvider";
 import { useTheme } from "../theme/ThemeProvider";
 import { AppButton } from "./AppButton";
 import { AppText } from "./AppText";
@@ -26,6 +26,7 @@ export function Checkout({ item, onClose, onPaid }: Props) {
   const colors = useTheme();
   const [method, setMethod] = useState<Method>("card");
   const [stage, setStage] = useState<Stage>("review");
+  const { recordPurchase } = useWallet();
 
   const close = () => {
     if (stage === "paying") return;
@@ -43,6 +44,7 @@ export function Checkout({ item, onClose, onPaid }: Props) {
     setTimeout(() => {
       playSound("purchase");
       setStage("done");
+      recordPurchase(item.title, item.total);
       onPaid(item);
     }, 1400);
   };

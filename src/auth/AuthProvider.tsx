@@ -1,13 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
 } from "react";
+import { deleteEmailAccount } from "./emailAccounts";
 import { signOutOfGoogle } from "./google";
 import type { AuthUser, Session } from "./types";
 
@@ -20,6 +21,7 @@ type AuthContextValue = {
   signIn: (user: AuthUser) => Promise<void>;
   completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>; // removes everything this account saved on the phone, then signs out
 };
 
 const AuthContext = createContext<AuthContextValue>({
@@ -28,6 +30,7 @@ const AuthContext = createContext<AuthContextValue>({
   signIn: async () => {},
   completeOnboarding: async () => {},
   signOut: async () => {},
+  deleteAccount: async () => {},
 });
 
 async function readOnboardedIds(): Promise<string[]> {
@@ -121,9 +124,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (__DEV__) console.log(`[auth] signed out (${method ?? "none"})`);
   }, [session]);
 
+  const deleteAccount = useCallback(async () => {
+    if (!session) return;
+    const { id, email, method } = session.user;
+    try {
+      // every per-account key ends with ".<userId>" (profile, deck, wallet, chats, passcode…)
+      const keys = (await AsyncStorage.getAllKeys()).filter((k) =>
+        k.endsWith(`.${id}`),
+      );
+      await AsyncStorage.multiRemove(keys);
+      const onboardedIds = await readOnboardedIds();
+      await AsyncStorage.setItem(
+        ONBOARDED_KEY,
+        JSON.stringify(onboardedIds.filter((u) => u !== id)),
+      );
+      if (method === "email") await deleteEmailAccount(email);
+      if (__DEV__)
+        console.log(
+          `[auth] deleted profile ${email} · ${keys.length} saved items removed`,
+        );
+    } catch (e) {
+      if (__DEV__) console.log("[auth] delete failed", String(e));
+    }
+    if (method === "google") await signOutOfGoogle();
+    await saveSession(null);
+    setSession(null);
+  }, [session]);
+
   const value = useMemo(
-    () => ({ ready, session, signIn, completeOnboarding, signOut }),
-    [ready, session, signIn, completeOnboarding, signOut],
+    () => ({
+      ready,
+      session,
+      signIn,
+      completeOnboarding,
+      signOut,
+      deleteAccount,
+    }),
+    [ready, session, signIn, completeOnboarding, signOut, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

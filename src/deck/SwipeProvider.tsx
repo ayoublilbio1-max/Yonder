@@ -16,9 +16,10 @@ import {
   type FilterResult,
   type Filters,
 } from "../filters/filters";
+import { notify } from "../notify/notify";
 import { profileDraftKey } from "../onboarding/OnboardingProvider";
 import type { ProfileDraft } from "../onboarding/types";
-import { PROFILES } from "../profiles/data";
+import { profileById, PROFILES } from "../profiles/data";
 import { sessionRandom } from "../profiles/session";
 import type { Profile, ProfileGender } from "../profiles/types";
 import { useWallet } from "../store/WalletProvider";
@@ -36,6 +37,13 @@ import { sortDeck, type SortKey } from "./sort";
 
 export type SwipeAction = "like" | "pass" | "superlike";
 export type Unmatch = { at: number; by: "me" | "them"; reason: string };
+// Settings › Privacy › Who can see my profile
+export type Visibility = "everyone" | "liked" | "hidden";
+export type Privacy = {
+  visibility: Visibility;
+  shareLink: boolean;
+  blockedContacts: string[];
+};
 type Swiped = { id: string; action: SwipeAction; counters: MatchCounters }; // counters = before this swipe
 
 type Saved = {
@@ -49,7 +57,7 @@ type Saved = {
   sort: SortKey;
   filters: Filters;
   notificationsSeenAt: number; // last time the list was opened (ms)
-};
+} & Privacy;
 
 const EMPTY: Saved = {
   decisions: {},
@@ -62,6 +70,9 @@ const EMPTY: Saved = {
   sort: "recommended",
   filters: DEFAULT_FILTERS,
   notificationsSeenAt: 0,
+  visibility: "everyone",
+  shareLink: true,
+  blockedContacts: [],
 };
 const storageKey = (userId: string) => `yonder.deck.${userId}`;
 
@@ -79,6 +90,8 @@ type SwipeContextValue = {
   saved: Saved;
   toggleFavorite: (id: string) => boolean; // returns the new state
   block: (id: string, reason: string) => void;
+  unblock: (id: string) => void; // Settings › Profiles I’ve blocked
+  setPrivacy: (patch: Partial<Privacy>) => void;
   unmatch: (id: string, reason: string, by?: "me" | "them") => void; // removes the match and hides the person for good
   saveCompliment: (id: string, text: string) => void;
   setSort: (sort: SortKey) => void;
@@ -190,9 +203,10 @@ export function SwipeProvider({
   );
   // "Likes you" (demo): 2 people at the start, +1 every 4 swipes (max 30). Never someone you
   // already swiped, matched or blocked. Liking one of them back is an instant match.
+  // Privacy: "Only people I like" or "No one" → nobody new can like you.
   const swipeCount = Object.keys(saved.decisions).length;
   const likedYou = useMemo(() => {
-    if (!ready) return [];
+    if (!ready || saved.visibility !== "everyone") return [];
     const count = Math.min(30, 2 + Math.floor(swipeCount / 4));
     return PROFILES.filter(
       (p) =>
@@ -206,7 +220,15 @@ export function SwipeProvider({
           sessionRandom(`${a.id}:likesyou`) - sessionRandom(`${b.id}:likesyou`),
       )
       .slice(0, count);
-  }, [ready, show, swipeCount, saved.decisions, saved.matches, saved.blocked]);
+  }, [
+    ready,
+    show,
+    swipeCount,
+    saved.decisions,
+    saved.matches,
+    saved.blocked,
+    saved.visibility,
+  ]);
   const likedYouIds = useMemo(
     () => new Set(likedYou.map((p) => p.id)),
     [likedYou],
@@ -227,7 +249,9 @@ export function SwipeProvider({
     (id: string, action: SwipeAction) => {
       const rules = decideMatch(saved.matchCounters, action);
       const likedBack = action !== "pass" && likedYouIds.has(id); // they already liked you
-      const matched = rules.matched || likedBack;
+      // Hidden from everyone: nobody sees you, so nobody can match with you.
+      const matched =
+        saved.visibility !== "hidden" && (rules.matched || likedBack);
       const next = matched
         ? { ...rules.next, swipesSinceMatch: 0 }
         : rules.next;
@@ -247,10 +271,48 @@ export function SwipeProvider({
           `[deck] ${action} ${id}${matched ? (likedBack ? " → MATCH (liked you)" : " → MATCH") : ""} · swipes since match ${next.swipesSinceMatch} · super likes ${next.supersSinceMatch}`,
         );
       }
+      if (matched) {
+        const p = profileById(id);
+        if (p) {
+          setTimeout(() => {
+            notify("matches", {
+              title: "It’s a match! 💞",
+              body: `You and ${p.name} like each other. Say hi!`,
+              url: `/chat/${id}`,
+            });
+          }, 1500);
+        }
+      }
       return matched;
     },
-    [saved.matchCounters, likedYouIds],
+    [saved.matchCounters, saved.visibility, likedYouIds],
   );
+
+  // Someone new liked you → a notification (from the 2nd load on, never for the first list).
+  const knownLikers = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!ready) return;
+    const ids = likedYou.map((p) => p.id);
+    if (knownLikers.current === null) {
+      knownLikers.current = new Set(ids);
+      return;
+    }
+    const known = knownLikers.current;
+    const fresh = likedYou.filter((p) => !known.has(p.id));
+    ids.forEach((i) => known.add(i));
+    const p = fresh[fresh.length - 1];
+    if (!p) return;
+    const superLike = sessionRandom(`${p.id}:superliked`) < 0.3;
+    notify("likes", {
+      title: superLike
+        ? "Someone super liked you ⭐"
+        : "Someone new likes you ❤️",
+      body: wallet.gold
+        ? `${p.name}, ${p.age} ${superLike ? "super liked" : "liked"} you. Like back to match.`
+        : "Get Yonder Gold to see who it is.",
+      url: "/likes",
+    });
+  }, [ready, likedYou, wallet.gold]);
 
   const rewindLast = useCallback(() => {
     const last = sessionSwiped[sessionSwiped.length - 1];
@@ -299,6 +361,19 @@ export function SwipeProvider({
       blocked: prev.blocked.includes(id) ? prev.blocked : [...prev.blocked, id],
     }));
     if (__DEV__) console.log(`[deck] blocked ${id} · ${reason}`);
+  }, []);
+
+  const unblock = useCallback((id: string) => {
+    setSaved((prev) => ({
+      ...prev,
+      blocked: prev.blocked.filter((b) => b !== id),
+    }));
+    if (__DEV__) console.log(`[deck] unblocked ${id}`);
+  }, []);
+
+  const setPrivacy = useCallback((patch: Partial<Privacy>) => {
+    setSaved((prev) => ({ ...prev, ...patch }));
+    if (__DEV__) console.log("[privacy]", JSON.stringify(patch));
   }, []);
 
   const unmatch = useCallback(
@@ -375,6 +450,8 @@ export function SwipeProvider({
       saved,
       toggleFavorite,
       block,
+      unblock,
+      setPrivacy,
       unmatch,
       saveCompliment,
       setSort,
@@ -396,6 +473,8 @@ export function SwipeProvider({
       saved,
       toggleFavorite,
       block,
+      unblock,
+      setPrivacy,
       unmatch,
       saveCompliment,
       setSort,

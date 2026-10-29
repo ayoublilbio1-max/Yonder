@@ -121,3 +121,15 @@ export async function logInWithEmail(
   if (__DEV__) console.log(`[email] logged in ${email}`);
   return { ok: true, user: toUser(account) };
 }
+
+// Settings › Delete my Yonder profile: the email account and its password are removed from this phone.
+export async function deleteEmailAccount(rawEmail: string) {
+  const email = normalizeEmail(rawEmail);
+  const accounts = await loadAccounts();
+  await AsyncStorage.setItem(
+    ACCOUNTS_KEY,
+    JSON.stringify(accounts.filter((a) => a.email !== email)),
+  ).catch(() => {});
+  await SecureStore.deleteItemAsync(passwordKey(email)).catch(() => {});
+  if (__DEV__) console.log(`[email] deleted ${email}`);
+}

@@ -612,7 +612,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
-    paddingVertical: 4,
+    paddingTop: RING + 10, // room for the ring above the photo (it was cut at the top)
+    paddingBottom: 12, // room for the % tag under the photo
+    paddingLeft: RING + 2,
   },
   ring: {
     position: "absolute",

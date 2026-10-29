@@ -16,6 +16,8 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { ToastProvider } from "../components/Toast";
 import { HIDE_ANDROID_NAV_BAR } from "../constants/app";
+import { NotificationsBridge } from "../notify/NotificationsBridge";
+import { PasscodeLock } from "../security/PasscodeLock";
 import { UserProviders } from "../store/UserProviders";
 import {
   ThemeProvider,
@@ -190,6 +192,8 @@ function RootNavigator() {
             options={{ animation: "slide_from_bottom" }}
           />
         </Stack>
+        <NotificationsBridge />
+        <PasscodeLock />
       </UserProviders>
     </ToastProvider>
   );

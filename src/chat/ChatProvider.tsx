@@ -12,6 +12,8 @@ import {
 import { useToast } from "../components/Toast";
 import { useSwipe } from "../deck/SwipeProvider";
 import { withOverrides } from "../filters/filters";
+import { notify } from "../notify/notify";
+import { getNotifyPrefs } from "../notify/prefs";
 import { mediaOf, profileById } from "../profiles/data";
 import { isLocked } from "../profiles/extras";
 import { sessionRandom } from "../profiles/session";
@@ -169,6 +171,8 @@ export function ChatProvider({
       media?: ChatMedia,
     ) => {
       if (removed.current.has(id)) return;
+      if (from === "them" && activeRef.current !== id)
+        notifyMessage(id, text, media);
       setThreads((prev) => {
         const t = prev[id] ?? NEW_THREAD;
         const incoming = from === "them" && activeRef.current !== id;
@@ -462,6 +466,13 @@ export function ChatProvider({
     later(4000, () => {
       unmatch(id, "They unmatched you", "them");
       removeThread(id);
+      const p = profileById(id);
+      if (p)
+        notify("matches", {
+          title: `${p.name} unmatched you`,
+          body: "It happens. New people are waiting for you.",
+          url: "/chats",
+        });
     });
     if (__DEV__) console.log(`[chat] ${id} will unmatch you (simulated)`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -506,6 +517,25 @@ export function useChats() {
 }
 
 // "14:02" today · "Yesterday" · "12 Oct"
+// A message from a match while you're not in that chat → a phone notification.
+function notifyMessage(id: string, text: string, media?: ChatMedia) {
+  const p = profileById(id);
+  if (!p) return;
+  const preview = getNotifyPrefs().preview;
+  const body = !preview
+    ? "Sent you a message"
+    : media?.timer
+      ? "Sent you a timed photo 🔥"
+      : media?.kind === "photo"
+        ? "Sent you a photo 📷"
+        : media?.kind === "video"
+          ? "Sent you a video 🎬"
+          : media?.kind === "audio"
+            ? "Sent you a voice message 🎤"
+            : text;
+  notify("messages", { title: p.name, body, url: `/chat/${id}` });
+}
+
 export function chatTime(at: number) {
   const d = new Date(at);
   const now = new Date();
