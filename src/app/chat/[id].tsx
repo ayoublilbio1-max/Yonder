@@ -88,6 +88,7 @@ export default function ChatScreen() {
     setActive,
     removeThread,
     markOpened,
+    toggleHeart,
   } = useChats();
   const { me, saved, toggleFavorite, unmatch } = useSwipe();
 
@@ -438,6 +439,7 @@ export default function ChatScreen() {
                   msg={item}
                   newer={data[index - 1]}
                   onOpenMedia={openMessageMedia}
+                  onHeart={(m) => toggleHeart(id, m.id)}
                 />
               )}
             />
@@ -766,70 +768,156 @@ function Bubble({
   msg,
   newer,
   onOpenMedia,
+  onHeart,
 }: {
   msg: ChatMessage;
   newer?: ChatMessage;
   onOpenMedia: (m: ChatMessage) => void;
+  onHeart: (m: ChatMessage) => void;
+}) {
+  if (msg.from === "system") return <SystemLine text={msg.text} />;
+  return (
+    <MessageBubble
+      msg={msg}
+      newer={newer}
+      onOpenMedia={onOpenMedia}
+      onHeart={onHeart}
+    />
+  );
+}
+
+function SystemLine({ text }: { text: string }) {
+  return (
+    <Animated.View entering={FadeIn.duration(250)} style={styles.system}>
+      <AppText variant="caption" weight="medium" muted align="center">
+        {text}
+      </AppText>
+    </Animated.View>
+  );
+}
+
+// Long-press one of THEIR messages → ❤️ (long-press again removes it). The heart pops in softly.
+function MessageBubble({
+  msg,
+  newer,
+  onOpenMedia,
+  onHeart,
+}: {
+  msg: ChatMessage;
+  newer?: ChatMessage;
+  onOpenMedia: (m: ChatMessage) => void;
+  onHeart: (m: ChatMessage) => void;
 }) {
   const colors = useTheme();
-  if (msg.from === "system") {
-    return (
-      <Animated.View entering={FadeIn.duration(250)} style={styles.system}>
-        <AppText variant="caption" weight="medium" muted align="center">
-          {msg.text}
-        </AppText>
-      </Animated.View>
-    );
-  }
   const mine = msg.from === "me";
+  const pop = useSharedValue(msg.heart ? 1 : 0);
+  const press = useSharedValue(0);
+
+  useEffect(() => {
+    pop.set(
+      msg.heart
+        ? withSequence(
+            withTiming(1.3, { duration: 170, easing: EASE }),
+            withTiming(1, { duration: 150, easing: EASE }),
+          )
+        : withTiming(0, { duration: 160, easing: EASE }),
+    );
+  }, [msg.heart, pop]);
+
+  const heartStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, pop.get()),
+    transform: [{ scale: pop.get() }],
+  }));
+  const bodyStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - press.get() * 0.04 }],
+  }));
+
+  const longPress = mine ? undefined : () => onHeart(msg);
+  const pressIn = () =>
+    press.set(withTiming(1, { duration: 150, easing: EASE }));
+  const pressOut = () =>
+    press.set(withTiming(0, { duration: 180, easing: EASE }));
+
   // the time shows under the last bubble of a group (same sender, within 5 minutes)
   const lastOfGroup =
     !newer || newer.from !== msg.from || newer.at - msg.at > 5 * 60_000;
   const media = msg.media;
+
   return (
     <Animated.View
       entering={FadeIn.duration(220)}
       style={[styles.bubbleWrap, mine ? styles.right : styles.left]}
     >
-      {media ? (
-        media.timer ? (
-          <TimedPhotoBubble
-            media={media}
-            mine={mine}
-            onOpen={() => onOpenMedia(msg)}
-          />
-        ) : media.kind === "photo" ? (
-          <PhotoBubble media={media} onOpen={() => onOpenMedia(msg)} />
-        ) : media.kind === "video" ? (
-          <VideoBubble media={media} onOpen={() => onOpenMedia(msg)} />
+      <Animated.View style={bodyStyle}>
+        {media ? (
+          media.timer ? (
+            <TimedPhotoBubble
+              media={media}
+              mine={mine}
+              onOpen={() => onOpenMedia(msg)}
+              onLongPress={longPress}
+            />
+          ) : media.kind === "photo" ? (
+            <PhotoBubble
+              media={media}
+              onOpen={() => onOpenMedia(msg)}
+              onLongPress={longPress}
+            />
+          ) : media.kind === "video" ? (
+            <VideoBubble
+              media={media}
+              onOpen={() => onOpenMedia(msg)}
+              onLongPress={longPress}
+            />
+          ) : (
+            <Pressable onLongPress={longPress} delayLongPress={300}>
+              <AudioBubble media={media} mine={mine} />
+            </Pressable>
+          )
         ) : (
-          <AudioBubble media={media} mine={mine} />
-        )
-      ) : (
-        <View
+          <Pressable
+            onLongPress={longPress}
+            onPressIn={mine ? undefined : pressIn}
+            onPressOut={mine ? undefined : pressOut}
+            delayLongPress={300}
+            accessibilityHint={mine ? undefined : "Long-press to like"}
+            style={[
+              styles.bubble,
+              mine
+                ? {
+                    backgroundColor: colors.primary,
+                    borderBottomRightRadius: lastOfGroup ? 6 : 20,
+                  }
+                : {
+                    backgroundColor: colors.surface,
+                    borderBottomLeftRadius: lastOfGroup ? 6 : 20,
+                  },
+            ]}
+          >
+            <AppText
+              variant="body"
+              color={mine ? colors.onPrimary : colors.text}
+            >
+              {msg.text}
+            </AppText>
+          </Pressable>
+        )}
+        <Animated.View
           style={[
-            styles.bubble,
-            mine
-              ? {
-                  backgroundColor: colors.primary,
-                  borderBottomRightRadius: lastOfGroup ? 6 : 20,
-                }
-              : {
-                  backgroundColor: colors.surface,
-                  borderBottomLeftRadius: lastOfGroup ? 6 : 20,
-                },
+            styles.heartBadge,
+            mine ? styles.heartLeft : styles.heartRight,
+            { backgroundColor: colors.card, borderColor: colors.bg },
+            heartStyle,
           ]}
         >
-          <AppText variant="body" color={mine ? colors.onPrimary : colors.text}>
-            {msg.text}
-          </AppText>
-        </View>
-      )}
+          <Ionicons name="heart" size={13} color={colors.primary} />
+        </Animated.View>
+      </Animated.View>
       {lastOfGroup ? (
         <AppText
           variant="caption"
           color={colors.textSubtle}
-          style={styles.time}
+          style={[styles.time, msg.heart && styles.timeWithHeart]}
         >
           {chatTime(msg.at)}
         </AppText>
@@ -1047,6 +1135,26 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 9,
+  },
+  heartBadge: {
+    position: "absolute",
+    bottom: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+  heartRight: {
+    right: -6,
+  },
+  heartLeft: {
+    left: -6,
+  },
+  timeWithHeart: {
+    marginTop: 10,
   },
   time: {
     marginTop: 3,

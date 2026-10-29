@@ -44,6 +44,7 @@ export type ChatMessage = {
   text: string; // for media: a short label ("Photo", "Voice message")
   at: number; // ms
   media?: ChatMedia;
+  heart?: boolean; // ❤️ on this message (you on theirs, or they on yours)
 };
 
 export type ChatThread = {
@@ -80,6 +81,7 @@ type ChatContextValue = {
   setActive: (id: string | null) => void; // the chat on screen (its messages don't count as unread)
   removeThread: (id: string) => void; // unmatch / block: the chat is deleted
   markOpened: (id: string, messageId: string) => void; // a timed photo was viewed
+  toggleHeart: (id: string, messageId: string) => void; // long-press: ❤️ their message (again = remove)
 };
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -250,6 +252,26 @@ export function ChatProvider({
     me.firstName,
   ]);
 
+  // They ❤️ your latest message (simulated).
+  const heartMine = useCallback((id: string) => {
+    setThreads((prev) => {
+      const t = prev[id];
+      if (!t) return prev;
+      const last = [...t.messages].reverse().find((m) => m.from === "me");
+      if (!last || last.heart) return prev;
+      return {
+        ...prev,
+        [id]: {
+          ...t,
+          messages: t.messages.map((m) =>
+            m.id === last.id ? { ...m, heart: true } : m,
+          ),
+        },
+      };
+    });
+    if (__DEV__) console.log(`[chat] ${id} ❤️ your message (simulated)`);
+  }, []);
+
   const send = useCallback(
     (id: string, text: string) => {
       const p = profileById(id);
@@ -266,6 +288,9 @@ export function ChatProvider({
         setTyping((prev) => ({ ...prev, [id]: false }));
         push(id, "them", reply, (t) => ({ replies: t.replies + 1 }));
         if (__DEV__) console.log(`[chat] ← ${id} reply #${cur.replies + 1}`);
+        // Sometimes they ❤️ the message you just sent (about 1 in 3).
+        if (sessionRandom(`${id}:heart:${cur.replies}`) < 0.35)
+          later(900, () => heartMine(id));
         if (isLocked(p) && !cur.revealed && cur.sent >= AUTO_REVEAL_AFTER)
           later(1500, () => reveal(id));
         // Every match sends you one timed photo, from their 3rd reply on (never while their photos are private).
@@ -291,8 +316,25 @@ export function ChatProvider({
         }
       });
     },
-    [push, later, reveal, me.firstName],
+    [push, later, reveal, heartMine, me.firstName],
   );
+
+  const toggleHeart = useCallback((id: string, messageId: string) => {
+    setThreads((prev) => {
+      const t = prev[id];
+      if (!t) return prev;
+      return {
+        ...prev,
+        [id]: {
+          ...t,
+          messages: t.messages.map((m) =>
+            m.id === messageId ? { ...m, heart: !m.heart } : m,
+          ),
+        },
+      };
+    });
+    if (__DEV__) console.log(`[chat] ${id} ❤️ toggled on ${messageId}`);
+  }, []);
 
   // Mark one timed photo as opened (it shows "Opened" and can't be viewed again).
   const markOpenedNow = useCallback((id: string, messageId: string) => {
@@ -437,6 +479,7 @@ export function ChatProvider({
       setActive,
       removeThread,
       markOpened: markOpenedNow,
+      toggleHeart,
     }),
     [
       ready,
@@ -449,6 +492,7 @@ export function ChatProvider({
       setActive,
       removeThread,
       markOpenedNow,
+      toggleHeart,
     ],
   );
 

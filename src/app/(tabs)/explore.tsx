@@ -1,6 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, type Href } from "expo-router";
 import { useState } from "react";
 import {
@@ -11,9 +10,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SvgXml } from "react-native-svg";
 import { AppText } from "../../components/AppText";
 import { Skeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
+import { EXPLORE_ART } from "../../constants/exploreArt";
 import { GoldSheet } from "../../deck/GoldSheet";
 import { MatchModal } from "../../deck/MatchModal";
 import { useSwipe } from "../../deck/SwipeProvider";
@@ -26,13 +27,13 @@ import {
 } from "../../explore/categories";
 import { CategoryDeck } from "../../explore/CategoryDeck";
 import { mainPhotoUri } from "../../profiles/data";
-import { isLocked } from "../../profiles/extras";
 import type { Profile } from "../../profiles/types";
 import { useWallet } from "../../store/WalletProvider";
 import { useTheme } from "../../theme/ThemeProvider";
 
 // Explore (like Tinder Explore): categories of people — what they're looking for, highlights,
 // and shared passions. Each opens its own swipe deck. "Active now" and "Nearby" are Gold.
+// Card: a glossy illustration on top of a blurred photo of someone in the category, tinted to the theme.
 
 export default function ExploreScreen() {
   const colors = useTheme();
@@ -87,50 +88,50 @@ export default function ExploreScreen() {
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             cachePolicy="memory-disk"
-            blurRadius={locked || isLocked(cover) ? 35 : 0}
+            blurRadius={40}
             transition={200}
           />
         ) : null}
-        <LinearGradient
-          colors={[
-            "transparent",
-            colors.photoScrimMiddle,
-            colors.photoScrimBottom,
+        {/* theme tint over the blurred photo (light card in light mode, dark in dark mode) */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            styles.tint,
+            { backgroundColor: colors.card },
           ]}
-          locations={[0.35, 0.6, 1]}
-          style={[StyleSheet.absoluteFill, styles.noTouch]}
         />
-        <View style={[styles.cardTop, styles.noTouch]}>
-          <View
-            style={[styles.cardIcon, { backgroundColor: colors.photoScrimTop }]}
-          >
-            <Ionicons name={c.icon} size={16} color={colors.onPhoto} />
-          </View>
-          {locked ? (
-            <View style={[styles.goldTag, { backgroundColor: colors.gold }]}>
-              <Ionicons name="lock-closed" size={11} color={colors.onPhoto} />
-              <AppText variant="caption" weight="bold" color={colors.onPhoto}>
-                GOLD
-              </AppText>
-            </View>
-          ) : null}
+        <View style={[styles.art, styles.noTouch, { height: h * 0.62 }]}>
+          <SvgXml
+            xml={EXPLORE_ART[c.key] ?? null}
+            width={Math.min(w * 0.7, h * 0.55)}
+            height={Math.min(w * 0.7, h * 0.55)}
+          />
         </View>
+        {locked ? (
+          <View
+            style={[
+              styles.goldTag,
+              styles.noTouch,
+              { backgroundColor: colors.gold },
+            ]}
+          >
+            <Ionicons name="lock-closed" size={11} color={colors.onPhoto} />
+            <AppText variant="caption" weight="bold" color={colors.onPhoto}>
+              GOLD
+            </AppText>
+          </View>
+        ) : null}
         <View style={[styles.cardText, styles.noTouch]}>
           <AppText
             variant="body"
             weight="bold"
-            color={colors.onPhoto}
-            numberOfLines={1}
+            numberOfLines={2}
+            style={styles.flex}
           >
             {c.title}
           </AppText>
-          <AppText
-            variant="caption"
-            color={colors.onPhotoMuted}
-            numberOfLines={1}
-          >
-            {people.length} {people.length === 1 ? "person" : "people"} ·{" "}
-            {c.subtitle}
+          <AppText variant="body" weight="semibold" muted>
+            {people.length}
           </AppText>
         </View>
       </Pressable>
@@ -251,23 +252,21 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: "hidden",
   },
-  cardTop: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    right: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  tint: {
+    opacity: 0.72,
   },
-  cardIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  art: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     alignItems: "center",
     justifyContent: "center",
   },
   goldTag: {
+    position: "absolute",
+    top: 10,
+    right: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
@@ -275,11 +274,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
+  flex: {
+    flex: 1,
+  },
   cardText: {
     position: "absolute",
-    left: 12,
-    right: 12,
+    left: 14,
+    right: 14,
     bottom: 12,
-    gap: 2,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
   },
 });

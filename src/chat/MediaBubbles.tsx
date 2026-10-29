@@ -46,14 +46,18 @@ function sizeOf(media: ChatMedia) {
 export function PhotoBubble({
   media,
   onOpen,
+  onLongPress,
 }: {
   media: ChatMedia;
   onOpen: () => void;
+  onLongPress?: () => void;
 }) {
   const colors = useTheme();
   return (
     <Pressable
       onPress={onOpen}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       accessibilityRole="imagebutton"
       accessibilityLabel="Open photo"
     >
@@ -76,10 +80,12 @@ export function TimedPhotoBubble({
   media,
   mine,
   onOpen,
+  onLongPress,
 }: {
   media: ChatMedia;
   mine: boolean;
   onOpen: () => void;
+  onLongPress?: () => void;
 }) {
   const colors = useTheme();
   const opened = Boolean(media.opened);
@@ -89,6 +95,8 @@ export function TimedPhotoBubble({
   return (
     <Pressable
       onPress={onOpen}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       accessibilityRole="button"
       accessibilityLabel={opened ? `${label}, opened` : title}
       style={({ pressed }) => [
@@ -154,9 +162,11 @@ export function TimedPhotoBubble({
 export function VideoBubble({
   media,
   onOpen,
+  onLongPress,
 }: {
   media: ChatMedia;
   onOpen: () => void;
+  onLongPress?: () => void;
 }) {
   const colors = useTheme();
   const player = useVideoPlayer(media.uri, (p) => {
@@ -165,6 +175,8 @@ export function VideoBubble({
   return (
     <Pressable
       onPress={onOpen}
+      onLongPress={onLongPress}
+      delayLongPress={300}
       accessibilityRole="button"
       accessibilityLabel="Play video"
     >
