@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { notifyBoost } from "../notify/notify";
+import { cancelBoostEnd } from "../notify/notify";
 
 // Settings › Restart the demo: a client can try everything again from the start.
 // Cleared: swipes, matches, likes, favorites, blocked profiles, chats, compliments, boosts, Gold
@@ -43,7 +43,7 @@ export async function clearDemoData(userId: string) {
     });
     await AsyncStorage.setItem(deckKey(userId), JSON.stringify(kept));
     await AsyncStorage.multiRemove([chatsKey(userId), walletKey(userId)]);
-    await notifyBoost(0); // cancels the "Your boost has ended" notification
+    await cancelBoostEnd(); // a boost bought before the restart doesn't "end" later
     if (__DEV__)
       console.log(
         `[restart] demo data cleared · kept ${Object.keys(kept).join(", ") || "nothing"}`,

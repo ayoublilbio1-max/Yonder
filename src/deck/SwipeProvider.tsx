@@ -59,6 +59,7 @@ type Saved = {
   sort: SortKey;
   filters: Filters;
   notificationsSeenAt: number; // last time the list was opened (ms)
+  likesSeen: string[]; // people in "Likes you" already seen (the Likes tab badge counts the others)
 } & Privacy;
 
 const EMPTY: Saved = {
@@ -72,6 +73,7 @@ const EMPTY: Saved = {
   sort: "recommended",
   filters: DEFAULT_FILTERS,
   notificationsSeenAt: 0,
+  likesSeen: [],
   visibility: "everyone",
   shareLink: true,
   blockedContacts: [],
@@ -84,6 +86,8 @@ type SwipeContextValue = {
   updateMe: (patch: Partial<ProfileDraft>) => void; // saved on the phone right away
   deck: Profile[];
   likedYou: Profile[]; // people who liked you (simulated, grows as you swipe); like them back = instant match
+  newLikes: number; // likes not seen yet (badge on the Likes tab)
+  markLikesSeen: () => void; // the Likes tab is open
   swipe: (id: string, action: SwipeAction) => boolean; // true = it's a match
   rewindLast: () => Profile | null;
   canRewind: boolean;
@@ -234,6 +238,23 @@ export function SwipeProvider({
     () => new Set(likedYou.map((p) => p.id)),
     [likedYou],
   );
+  const newLikes = useMemo(() => {
+    const seen = new Set(saved.likesSeen);
+    return likedYou.filter((p) => !seen.has(p.id)).length;
+  }, [likedYou, saved.likesSeen]);
+
+  // Only the people shown now are kept, and nothing changes when all of them were already seen.
+  const markLikesSeen = useCallback(() => {
+    setSaved((prev) => {
+      const seen = new Set(prev.likesSeen);
+      if (likedYou.every((p) => seen.has(p.id))) return prev;
+      if (__DEV__)
+        console.log(
+          `[likes] ${likedYou.filter((p) => !seen.has(p.id)).length} new likes seen`,
+        );
+      return { ...prev, likesSeen: likedYou.map((p) => p.id) };
+    });
+  }, [likedYou]);
 
   const deck = useMemo(() => {
     const list = sortDeck(
@@ -459,6 +480,8 @@ export function SwipeProvider({
       updateMe,
       deck,
       likedYou,
+      newLikes,
+      markLikesSeen,
       swipe,
       rewindLast,
       canRewind,
@@ -482,6 +505,8 @@ export function SwipeProvider({
       updateMe,
       deck,
       likedYou,
+      newLikes,
+      markLikesSeen,
       swipe,
       rewindLast,
       canRewind,
