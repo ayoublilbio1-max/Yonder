@@ -1278,4 +1278,10 @@ export const es: Record<string, string> = {
   "Your swipes, matches, likes, chats, boosts, Gold and purchases are cleared. Your account, profile, photos and settings stay.":
     "Se borran tus deslizamientos, matches, likes, chats, boosts, Gold y compras. Tu cuenta, perfil, fotos y ajustes se conservan.",
   Restart: "Reiniciar",
+  // v0.18.2
+  "How to test Yonder": "Cómo probar Yonder",
+  "Open the testing guide in your browser":
+    "Abre la guía de pruebas en tu navegador",
+  "Couldn’t open the link. Check your internet connection.":
+    "No se pudo abrir el enlace. Revisa tu conexión a internet.",
 };

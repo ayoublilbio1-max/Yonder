@@ -31,7 +31,13 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { FeedbackModal } from "../components/FeedbackModal";
 import { PressableScale } from "../components/PressableScale";
 import { useToast } from "../components/Toast";
-import { APP_NAME, APP_VERSION, DEVELOPER, HOME_URL } from "../constants/app";
+import {
+  APP_NAME,
+  APP_VERSION,
+  DEVELOPER,
+  HOME_URL,
+  TESTING_URL,
+} from "../constants/app";
 import { useSwipe } from "../deck/SwipeProvider";
 import { tr, useLanguage } from "../i18n/i18n";
 import { DURATION, EASE, EASE_OUT } from "../motion/ease";
@@ -156,6 +162,17 @@ export default function SettingsScreen() {
       if (__DEV__) console.log("[privacy] profile link shared");
     } catch (e) {
       if (__DEV__) console.log("[privacy] share failed", String(e));
+    }
+  };
+
+  // The guide is a web page (GitHub Pages), never inside the app.
+  const openTestingGuide = async () => {
+    try {
+      await Linking.openURL(TESTING_URL);
+      if (__DEV__) console.log("[help] opened the testing guide");
+    } catch (e) {
+      if (__DEV__) console.log("[help] testing guide failed", String(e));
+      toast.show(tr("Couldn’t open the link. Check your internet connection."));
     }
   };
 
@@ -433,6 +450,12 @@ export default function SettingsScreen() {
         <Group>
           <Row
             first
+            icon="checkbox-outline"
+            title={tr("How to test Yonder")}
+            text={tr("Open the testing guide in your browser")}
+            onPress={openTestingGuide}
+          />
+          <Row
             icon="chatbubble-ellipses-outline"
             title={tr("Feedback")}
             text={tr("Report a bug or tell us what to improve")}

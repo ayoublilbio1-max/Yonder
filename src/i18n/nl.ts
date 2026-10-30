@@ -1264,4 +1264,9 @@ export const nl: Record<string, string> = {
   "Your swipes, matches, likes, chats, boosts, Gold and purchases are cleared. Your account, profile, photos and settings stay.":
     "Je swipes, matches, likes, chats, boosts, Gold en aankopen worden gewist. Je account, profiel, foto's en instellingen blijven bewaard.",
   Restart: "Opnieuw starten",
+  // v0.18.2
+  "How to test Yonder": "Zo test je Yonder",
+  "Open the testing guide in your browser": "Open de testgids in je browser",
+  "Couldn’t open the link. Check your internet connection.":
+    "Kan de link niet openen. Controleer je internetverbinding.",
 };
