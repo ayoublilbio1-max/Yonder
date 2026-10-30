@@ -1,43 +1,88 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
-import { AppState, Linking, ScrollView, Share, StyleSheet, Switch, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../auth/AuthProvider';
-import { displayName, METHOD_LABEL } from '../auth/types';
-import { AppText } from '../components/AppText';
-import { ConfirmModal } from '../components/ConfirmModal';
-import { FeedbackModal } from '../components/FeedbackModal';
-import { PressableScale } from '../components/PressableScale';
-import { useToast } from '../components/Toast';
-import { APP_NAME, APP_VERSION, DEVELOPER, HOME_URL } from '../constants/app';
-import { useSwipe } from '../deck/SwipeProvider';
-import { DURATION, EASE, EASE_OUT } from '../motion/ease';
-import { askPermission, cancelScheduled, permissionState, type PermissionState } from '../notify/notify';
-import { NOTIFY_ROWS, setNotifyPrefs, useNotifyPrefs, type NotifyPrefs } from '../notify/prefs';
-import { deletePhotoFile } from '../onboarding/photos';
-import { clearPasscode, getPasscode, usePasscodeOn } from '../security/passcode';
-import { PasscodeSetup, type PasscodeMode } from '../security/PasscodeSetup';
-import { DEMO_CONTACTS } from '../settings/demoContacts';
-import { BlockContactsPage, BlockedProfilesPage, PurchasesPage, VisibilitySheet, visibilityLabel } from '../settings/SettingsPages';
-import { LanguageSheet, languageName } from '../settings/LanguageSheet';
-import { setDistanceUnit, useDistanceUnit, type DistanceUnit } from '../settings/units';
-import { playSound, setSoundsEnabled, useSoundsEnabled } from '../sound/sounds';
-import { useTheme, useThemeMode, type ThemeMode } from '../theme/ThemeProvider';
-import { tr, useLanguage } from '../i18n/i18n';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import {
+  useEffect,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import {
+  AppState,
+  Linking,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Switch,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../auth/AuthProvider";
+import { METHOD_LABEL, displayName } from "../auth/types";
+import { AppText } from "../components/AppText";
+import { ConfirmModal } from "../components/ConfirmModal";
+import { FeedbackModal } from "../components/FeedbackModal";
+import { PressableScale } from "../components/PressableScale";
+import { useToast } from "../components/Toast";
+import { APP_NAME, APP_VERSION, DEVELOPER, HOME_URL } from "../constants/app";
+import { useSwipe } from "../deck/SwipeProvider";
+import { tr, useLanguage } from "../i18n/i18n";
+import { DURATION, EASE, EASE_OUT } from "../motion/ease";
+import {
+  askPermission,
+  cancelScheduled,
+  permissionState,
+  type PermissionState,
+} from "../notify/notify";
+import {
+  NOTIFY_ROWS,
+  setNotifyPrefs,
+  useNotifyPrefs,
+  type NotifyPrefs,
+} from "../notify/prefs";
+import { deletePhotoFile } from "../onboarding/photos";
+import {
+  clearPasscode,
+  getPasscode,
+  usePasscodeOn,
+} from "../security/passcode";
+import { PasscodeSetup, type PasscodeMode } from "../security/PasscodeSetup";
+import { DEMO_CONTACTS } from "../settings/demoContacts";
+import { LanguageSheet, languageName } from "../settings/LanguageSheet";
+import {
+  BlockContactsPage,
+  BlockedProfilesPage,
+  PurchasesPage,
+  VisibilitySheet,
+  visibilityLabel,
+} from "../settings/SettingsPages";
+import {
+  setDistanceUnit,
+  useDistanceUnit,
+  type DistanceUnit,
+} from "../settings/units";
+import { playSound, setSoundsEnabled, useSoundsEnabled } from "../sound/sounds";
+import { useRestartDemo } from "../store/UserProviders";
+import { useTheme, useThemeMode, type ThemeMode } from "../theme/ThemeProvider";
 
 // Settings (Muzz order, Yonder look): account · notifications · app settings · privacy · help · delete.
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
-type PageName = 'blocked' | 'contacts' | 'purchases' | null;
+type IconName = ComponentProps<typeof Ionicons>["name"];
+type PageName = "blocked" | "contacts" | "purchases" | null;
 
-const APPEARANCE_OPTIONS: { mode: ThemeMode; label: string; icon: IconName }[] = [
-  { mode: 'system', label: 'Follow phone', icon: 'phone-portrait-outline' },
-  { mode: 'light', label: 'Light', icon: 'sunny-outline' },
-  { mode: 'dark', label: 'Dark', icon: 'moon-outline' },
-];
+const APPEARANCE_OPTIONS: { mode: ThemeMode; label: string; icon: IconName }[] =
+  [
+    { mode: "system", label: "Follow phone", icon: "phone-portrait-outline" },
+    { mode: "light", label: "Light", icon: "sunny-outline" },
+    { mode: "dark", label: "Dark", icon: "moon-outline" },
+  ];
 
 export default function SettingsScreen() {
   const colors = useTheme();
@@ -50,10 +95,12 @@ export default function SettingsScreen() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const restartDemo = useRestartDemo();
   const [visibilityOpen, setVisibilityOpen] = useState(false);
   const [page, setPage] = useState<PageName>(null);
   const [passMode, setPassMode] = useState<PasscodeMode | null>(null);
-  const [permission, setPermission] = useState<PermissionState>('undetermined');
+  const [permission, setPermission] = useState<PermissionState>("undetermined");
   const soundsOn = useSoundsEnabled();
   const unit = useDistanceUnit();
   const prefs = useNotifyPrefs();
@@ -61,7 +108,7 @@ export default function SettingsScreen() {
   const [languageOpen, setLanguageOpen] = useState(false);
 
   const user = session?.user;
-  const userId = user?.id ?? '';
+  const userId = user?.id ?? "";
   const passcodeOn = usePasscodeOn(userId);
 
   // Read the passcode state and Android's notification permission (again when you come back
@@ -70,8 +117,8 @@ export default function SettingsScreen() {
     if (userId) getPasscode(userId);
     const read = () => permissionState().then(setPermission);
     read();
-    const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') read();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") read();
     });
     return () => sub.remove();
   }, [userId]);
@@ -80,7 +127,7 @@ export default function SettingsScreen() {
     setNotifyPrefs({ enabled: on });
     if (on) {
       const ok = await askPermission();
-      setPermission(ok ? 'granted' : await permissionState());
+      setPermission(ok ? "granted" : await permissionState());
     } else {
       await cancelScheduled();
     }
@@ -88,16 +135,27 @@ export default function SettingsScreen() {
 
   const blockedCount = saved.blocked.filter((id) => {
     const u = saved.unmatched[id];
-    return !u || (u.by === 'me' && (u.reason === 'block' || u.reason.startsWith('report')));
+    return (
+      !u ||
+      (u.by === "me" && (u.reason === "block" || u.reason.startsWith("report")))
+    );
   }).length;
 
   const shareLink = async () => {
-    const slug = (me.firstName ?? 'me').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const slug = (me.firstName ?? "me")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
     try {
-      await Share.share({ message: tr('See my profile on {APP_NAME}: {HOME_URL}?u={slug}', { APP_NAME, HOME_URL, slug }) });
-      if (__DEV__) console.log('[privacy] profile link shared');
+      await Share.share({
+        message: tr("See my profile on {APP_NAME}: {HOME_URL}?u={slug}", {
+          APP_NAME,
+          HOME_URL,
+          slug,
+        }),
+      });
+      if (__DEV__) console.log("[privacy] profile link shared");
     } catch (e) {
-      if (__DEV__) console.log('[privacy] share failed', String(e));
+      if (__DEV__) console.log("[privacy] share failed", String(e));
     }
   };
 
@@ -122,20 +180,31 @@ export default function SettingsScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </PressableScale>
-        <AppText variant="title">{tr('Settings')}</AppText>
+        <AppText variant="title">{tr("Settings")}</AppText>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 32 },
+        ]}
+      >
         {/* ---------- account ---------- */}
         {user ? (
           <>
-            <SectionTitle>{tr('ACCOUNT')}</SectionTitle>
+            <SectionTitle>{tr("ACCOUNT")}</SectionTitle>
             <Group>
               <View style={styles.row}>
                 {user.photo ? (
-                  <Image source={{ uri: user.photo }} style={styles.avatar} contentFit="cover" />
+                  <Image
+                    source={{ uri: user.photo }}
+                    style={styles.avatar}
+                    contentFit="cover"
+                  />
                 ) : (
-                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                  <View
+                    style={[styles.avatar, { backgroundColor: colors.primary }]}
+                  >
                     <AppText variant="heading" color={colors.onPrimary}>
                       {displayName(user).charAt(0).toUpperCase()}
                     </AppText>
@@ -149,44 +218,63 @@ export default function SettingsScreen() {
                     {user.email}
                   </AppText>
                   <AppText variant="caption" muted>
-                    {tr('Signed in with {v}', { v: tr(METHOD_LABEL[user.method]) })}
+                    {tr("Signed in with {v}", {
+                      v: tr(METHOD_LABEL[user.method]),
+                    })}
                   </AppText>
                 </View>
               </View>
-              <Row first={false} icon="log-out-outline" danger title={tr('Log out')} onPress={() => setLogoutOpen(true)} />
+              <Row
+                first={false}
+                icon="log-out-outline"
+                danger
+                title={tr("Log out")}
+                onPress={() => setLogoutOpen(true)}
+              />
             </Group>
           </>
         ) : null}
 
         {/* ---------- notifications ---------- */}
-        <SectionTitle>{tr('NOTIFICATIONS')}</SectionTitle>
+        <SectionTitle>{tr("NOTIFICATIONS")}</SectionTitle>
         <Group>
           <SwitchRow
             first
             icon="notifications-outline"
-            title={tr('Notifications')}
-            text={tr('Stay up to date with new likes, matches and messages')}
+            title={tr("Notifications")}
+            text={tr("Stay up to date with new likes, matches and messages")}
             value={prefs.enabled}
             onChange={toggleNotifications}
           />
-          {prefs.enabled && permission === 'denied' ? (
+          {prefs.enabled && permission === "denied" ? (
             <Row
               icon="alert-circle-outline"
-              title={tr('Blocked in your phone settings')}
-              text={tr('Tap to allow notifications for Yonder')}
+              title={tr("Blocked in your phone settings")}
+              text={tr("Tap to allow notifications for Yonder")}
               danger
               onPress={() => Linking.openSettings().catch(() => {})}
             />
           ) : null}
           {prefs.enabled ? (
-            <Animated.View entering={FadeIn.duration(DURATION.quick + 60).easing(EASE_OUT)}>
+            <Animated.View
+              entering={FadeIn.duration(DURATION.quick + 60).easing(EASE_OUT)}
+            >
               {NOTIFY_ROWS.map((r) => (
-                <SwitchRow key={r.key} small title={tr(r.title)} text={tr(r.text)} value={prefs[r.key]} onChange={(v) => setNotifyPrefs({ [r.key]: v } as Partial<NotifyPrefs>)} />
+                <SwitchRow
+                  key={r.key}
+                  small
+                  title={tr(r.title)}
+                  text={tr(r.text)}
+                  value={prefs[r.key]}
+                  onChange={(v) =>
+                    setNotifyPrefs({ [r.key]: v } as Partial<NotifyPrefs>)
+                  }
+                />
               ))}
               <SwitchRow
                 small
-                title={tr('Chat message preview')}
-                text={tr('Show the message text in the notification')}
+                title={tr("Chat message preview")}
+                text={tr("Show the message text in the notification")}
                 value={prefs.preview}
                 onChange={(v) => setNotifyPrefs({ preview: v })}
               />
@@ -195,7 +283,7 @@ export default function SettingsScreen() {
         </Group>
 
         {/* ---------- app settings ---------- */}
-        <SectionTitle>{tr('APPEARANCE')}</SectionTitle>
+        <SectionTitle>{tr("APPEARANCE")}</SectionTitle>
         <Group>
           {APPEARANCE_OPTIONS.map((option, i) => {
             const selected = mode === option.mode;
@@ -207,104 +295,172 @@ export default function SettingsScreen() {
                 accessibilityState={{ selected }}
                 scaleTo={0.99}
                 dimTo={0.7}
-                style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+                style={[
+                  styles.row,
+                  i > 0 && {
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: colors.border,
+                  },
+                ]}
               >
                 <Ionicons name={option.icon} size={22} color={colors.text} />
                 <AppText variant="body" style={styles.rowText}>
                   {tr(option.label)}
                 </AppText>
-                <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={22} color={selected ? colors.primary : colors.textSubtle} />
+                <Ionicons
+                  name={selected ? "radio-button-on" : "radio-button-off"}
+                  size={22}
+                  color={selected ? colors.primary : colors.textSubtle}
+                />
               </PressableScale>
             );
           })}
         </Group>
 
-        <SectionTitle>{tr('DISTANCE')}</SectionTitle>
-        <View style={[styles.group, styles.unitGroup, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SectionTitle>{tr("DISTANCE")}</SectionTitle>
+        <View
+          style={[
+            styles.group,
+            styles.unitGroup,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.unitHead}>
             <AppText variant="body" weight="medium" style={styles.rowText}>
-              {tr('Show distances in')}
+              {tr("Show distances in")}
             </AppText>
             <AppText variant="body" muted>
-              {unit === 'km' ? tr('Km') : tr('Mi')}
+              {unit === "km" ? tr("Km") : tr("Mi")}
             </AppText>
           </View>
           <UnitSwitch value={unit} onChange={setDistanceUnit} />
         </View>
 
-        <SectionTitle>{tr('APP SETTINGS')}</SectionTitle>
+        <SectionTitle>{tr("APP SETTINGS")}</SectionTitle>
         <Group>
-          <Row first icon="language-outline" title={tr('Language')} text={languageName(language.setting, language.lang)} onPress={() => setLanguageOpen(true)} />
+          <Row
+            first
+            icon="language-outline"
+            title={tr("Language")}
+            text={languageName(language.setting, language.lang)}
+            onPress={() => setLanguageOpen(true)}
+          />
           <SwitchRow
-            icon={soundsOn ? 'volume-high-outline' : 'volume-mute-outline'}
-            title={tr('App sounds')}
-            text={tr('Matches, boosts and payments')}
+            icon={soundsOn ? "volume-high-outline" : "volume-mute-outline"}
+            title={tr("App sounds")}
+            text={tr("Matches, boosts and payments")}
             value={soundsOn}
             onChange={(on) => {
               setSoundsEnabled(on);
-              if (on) playSound('purchase');
+              if (on) playSound("purchase");
             }}
           />
-          <Row icon="card-outline" title={tr('Manage purchases')} text={tr('Review or restore your purchases')} onPress={() => setPage('purchases')} />
+          <Row
+            icon="card-outline"
+            title={tr("Manage purchases")}
+            text={tr("Review or restore your purchases")}
+            onPress={() => setPage("purchases")}
+          />
           <SwitchRow
             icon="lock-closed-outline"
-            title={tr('Passcode')}
-            text={tr('Ask for a passcode each time you open Yonder')}
+            title={tr("Passcode")}
+            text={tr("Ask for a passcode each time you open Yonder")}
             value={passcodeOn}
-            onChange={(on) => setPassMode(on ? 'set' : 'remove')}
+            onChange={(on) => setPassMode(on ? "set" : "remove")}
           />
-          {passcodeOn ? <Row small title={tr('Change passcode')} onPress={() => setPassMode('change')} /> : null}
+          {passcodeOn ? (
+            <Row
+              small
+              title={tr("Change passcode")}
+              onPress={() => setPassMode("change")}
+            />
+          ) : null}
         </Group>
 
         {/* ---------- privacy ---------- */}
-        <SectionTitle>{tr('PRIVACY')}</SectionTitle>
+        <SectionTitle>{tr("PRIVACY")}</SectionTitle>
         <Group>
           <Row
             first
             icon="eye-off-outline"
-            title={tr('Who can see my profile')}
+            title={tr("Who can see my profile")}
             text={visibilityLabel(saved.visibility)}
             onPress={() => setVisibilityOpen(true)}
           />
           <SwitchRow
             icon="link-outline"
-            title={tr('My profile sharing link')}
-            text={tr('Let your profile be shared with a link. Locked photos stay hidden.')}
+            title={tr("My profile sharing link")}
+            text={tr(
+              "Let your profile be shared with a link. Locked photos stay hidden.",
+            )}
             value={saved.shareLink}
             onChange={(v) => setPrivacy({ shareLink: v })}
           />
-          {saved.shareLink ? <Row small title={tr('Share my profile link')} onPress={shareLink} /> : null}
+          {saved.shareLink ? (
+            <Row
+              small
+              title={tr("Share my profile link")}
+              onPress={shareLink}
+            />
+          ) : null}
           <Row
             icon="ban-outline"
-            title={tr('Profiles I’ve blocked')}
-            text={blockedCount ? tr('{blockedCount} blocked', { blockedCount }) : tr('View and manage everyone you blocked')}
-            onPress={() => setPage('blocked')}
+            title={tr("Profiles I’ve blocked")}
+            text={
+              blockedCount
+                ? tr("{blockedCount} blocked", { blockedCount })
+                : tr("View and manage everyone you blocked")
+            }
+            onPress={() => setPage("blocked")}
           />
           <Row
             icon="people-outline"
-            title={tr('Block my phone contacts')}
-            text={saved.blockedContacts.length ? tr('{length} of {length2} contacts blocked', { length: saved.blockedContacts.length, length2: DEMO_CONTACTS.length }) : tr('They can’t see you on Yonder')}
-            onPress={() => setPage('contacts')}
+            title={tr("Block my phone contacts")}
+            text={
+              saved.blockedContacts.length
+                ? tr("{length} of {length2} contacts blocked", {
+                    length: saved.blockedContacts.length,
+                    length2: DEMO_CONTACTS.length,
+                  })
+                : tr("They can’t see you on Yonder")
+            }
+            onPress={() => setPage("contacts")}
           />
         </Group>
 
         {/* ---------- help ---------- */}
-        <SectionTitle>{tr('HELP')}</SectionTitle>
+        <SectionTitle>{tr("HELP")}</SectionTitle>
         <Group>
-          <Row first icon="chatbubble-ellipses-outline" title={tr('Feedback')} text={tr('Report a bug or tell us what to improve')} onPress={() => setFeedbackOpen(true)} />
+          <Row
+            first
+            icon="chatbubble-ellipses-outline"
+            title={tr("Feedback")}
+            text={tr("Report a bug or tell us what to improve")}
+            onPress={() => setFeedbackOpen(true)}
+          />
         </Group>
 
         {/* ---------- delete ---------- */}
         {user ? (
           <>
-            <SectionTitle>{tr('MANAGE ACCOUNT')}</SectionTitle>
+            <SectionTitle>{tr("MANAGE ACCOUNT")}</SectionTitle>
             <Group>
               <Row
                 first
+                icon="refresh-outline"
+                title={tr("Restart the demo")}
+                text={tr(
+                  "Start again with no swipes, matches, chats or purchases. Your account and profile stay.",
+                )}
+                onPress={() => setRestartOpen(true)}
+              />
+              <Row
                 icon="trash-outline"
                 danger
-                title={tr('Delete my Yonder profile')}
-                text={tr('Your profile, photos, matches and chats are deleted from this phone')}
+                title={tr("Delete my Yonder profile")}
+                text={tr(
+                  "Your profile, photos, matches and chats are deleted from this phone",
+                )}
                 onPress={() => setDeleteOpen(true)}
               />
             </Group>
@@ -316,17 +472,40 @@ export default function SettingsScreen() {
             {APP_NAME} {APP_VERSION}
           </AppText>
           <AppText variant="bodySmall" muted align="center">
-            {tr('Developed with')} <AppText variant="bodySmall" color={colors.primary}>♥</AppText> {tr('by {DEVELOPER}', { DEVELOPER })}
+            {tr("Developed with")}{" "}
+            <AppText variant="bodySmall" color={colors.primary}>
+              ♥
+            </AppText>{" "}
+            {tr("by {DEVELOPER}", { DEVELOPER })}
           </AppText>
         </View>
       </ScrollView>
 
-      <FeedbackModal visible={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
-      <VisibilitySheet visible={visibilityOpen} onClose={() => setVisibilityOpen(false)} />
-      <LanguageSheet visible={languageOpen} onClose={() => setLanguageOpen(false)} reopen="/settings" />
-      <BlockedProfilesPage visible={page === 'blocked'} onClose={() => setPage(null)} />
-      <BlockContactsPage visible={page === 'contacts'} onClose={() => setPage(null)} />
-      <PurchasesPage visible={page === 'purchases'} onClose={() => setPage(null)} />
+      <FeedbackModal
+        visible={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+      />
+      <VisibilitySheet
+        visible={visibilityOpen}
+        onClose={() => setVisibilityOpen(false)}
+      />
+      <LanguageSheet
+        visible={languageOpen}
+        onClose={() => setLanguageOpen(false)}
+        reopen="/settings"
+      />
+      <BlockedProfilesPage
+        visible={page === "blocked"}
+        onClose={() => setPage(null)}
+      />
+      <BlockContactsPage
+        visible={page === "contacts"}
+        onClose={() => setPage(null)}
+      />
+      <PurchasesPage
+        visible={page === "purchases"}
+        onClose={() => setPage(null)}
+      />
       <PasscodeSetup
         mode={passMode}
         userId={userId}
@@ -338,9 +517,11 @@ export default function SettingsScreen() {
       />
       <ConfirmModal
         visible={logoutOpen}
-        title={tr('Log out?')}
-        message={tr('You\'ll go back to the welcome screen. Your account stays saved on this phone.')}
-        confirmLabel={tr('Log out')}
+        title={tr("Log out?")}
+        message={tr(
+          "You'll go back to the welcome screen. Your account stays saved on this phone.",
+        )}
+        confirmLabel={tr("Log out")}
         icon="log-out-outline"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={async () => {
@@ -350,10 +531,26 @@ export default function SettingsScreen() {
         }}
       />
       <ConfirmModal
+        visible={restartOpen}
+        title={tr("Restart the demo?")}
+        message={tr(
+          "Your swipes, matches, likes, chats, boosts, Gold and purchases are cleared. Your account, profile, photos and settings stay.",
+        )}
+        confirmLabel={tr("Restart")}
+        icon="refresh-outline"
+        onCancel={() => setRestartOpen(false)}
+        onConfirm={async () => {
+          setRestartOpen(false);
+          await restartDemo();
+        }}
+      />
+      <ConfirmModal
         visible={deleteOpen}
-        title={tr('Delete your profile?')}
-        message={tr('Your profile, photos, matches, chats and purchases are deleted from this phone. You can\'t undo this.')}
-        confirmLabel={tr('Delete my profile')}
+        title={tr("Delete your profile?")}
+        message={tr(
+          "Your profile, photos, matches, chats and purchases are deleted from this phone. You can't undo this.",
+        )}
+        confirmLabel={tr("Delete my profile")}
         icon="trash-outline"
         onCancel={() => setDeleteOpen(false)}
         onConfirm={doDelete}
@@ -375,7 +572,16 @@ function SectionTitle({ children }: { children: ReactNode }) {
 // A rounded group; rows after the first get a thin line on top.
 function Group({ children }: { children: ReactNode }) {
   const colors = useTheme();
-  return <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.border }]}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.group,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 function Row({
@@ -402,15 +608,37 @@ function Row({
       accessibilityRole="button"
       scaleTo={0.99}
       dimTo={0.7}
-      style={[styles.row, small && styles.smallRow, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+      style={[
+        styles.row,
+        small && styles.smallRow,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+      ]}
     >
       {icon ? (
-        <View style={[styles.iconCircle, { backgroundColor: danger ? colors.dangerSoft : colors.primarySoft }]}>
-          <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.primary} />
+        <View
+          style={[
+            styles.iconCircle,
+            {
+              backgroundColor: danger ? colors.dangerSoft : colors.primarySoft,
+            },
+          ]}
+        >
+          <Ionicons
+            name={icon}
+            size={20}
+            color={danger ? colors.danger : colors.primary}
+          />
         </View>
       ) : null}
       <View style={styles.rowText}>
-        <AppText variant="body" weight="medium" color={danger ? colors.danger : colors.text}>
+        <AppText
+          variant="body"
+          weight="medium"
+          color={danger ? colors.danger : colors.text}
+        >
           {title}
         </AppText>
         {text ? (
@@ -449,10 +677,19 @@ function SwitchRow({
       accessibilityState={{ checked: value }}
       scaleTo={0.99}
       dimTo={0.7}
-      style={[styles.row, small && styles.smallRow, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
+      style={[
+        styles.row,
+        small && styles.smallRow,
+        !first && {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
+      ]}
     >
       {icon ? (
-        <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
+        <View
+          style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}
+        >
           <Ionicons name={icon} size={20} color={colors.primary} />
         </View>
       ) : null}
@@ -466,37 +703,69 @@ function SwitchRow({
           </AppText>
         ) : null}
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.card} />
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.border, true: colors.primary }}
+        thumbColor={colors.card}
+      />
     </PressableScale>
   );
 }
 
 // "Km | Mi" (like Tinder): the pink pill slides to the choice with a CSS-like ease.
-function UnitSwitch({ value, onChange }: { value: DistanceUnit; onChange: (u: DistanceUnit) => void }) {
+function UnitSwitch({
+  value,
+  onChange,
+}: {
+  value: DistanceUnit;
+  onChange: (u: DistanceUnit) => void;
+}) {
   const colors = useTheme();
   const [w, setW] = useState(0);
-  const x = useSharedValue(value === 'km' ? 0 : 1);
+  const x = useSharedValue(value === "km" ? 0 : 1);
   useEffect(() => {
-    x.set(withTiming(value === 'km' ? 0 : 1, { duration: DURATION.quick + 60, easing: EASE }));
+    x.set(
+      withTiming(value === "km" ? 0 : 1, {
+        duration: DURATION.quick + 60,
+        easing: EASE,
+      }),
+    );
   }, [value, x]);
-  const pill = useAnimatedStyle(() => ({ width: w / 2, transform: [{ translateX: (x.get() * w) / 2 }] }));
-  const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width - 8);
+  const pill = useAnimatedStyle(() => ({
+    width: w / 2,
+    transform: [{ translateX: (x.get() * w) / 2 }],
+  }));
+  const onLayout = (e: LayoutChangeEvent) =>
+    setW(e.nativeEvent.layout.width - 8);
 
   return (
-    <View style={[styles.unitSwitch, { backgroundColor: colors.card, borderColor: colors.border }]} onLayout={onLayout}>
-      <Animated.View style={[styles.unitPill, { backgroundColor: colors.primary }, pill]} />
-      {(['km', 'mi'] as DistanceUnit[]).map((u) => (
+    <View
+      style={[
+        styles.unitSwitch,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+      onLayout={onLayout}
+    >
+      <Animated.View
+        style={[styles.unitPill, { backgroundColor: colors.primary }, pill]}
+      />
+      {(["km", "mi"] as DistanceUnit[]).map((u) => (
         <PressableScale
           key={u}
           onPress={() => onChange(u)}
           accessibilityRole="radio"
           accessibilityState={{ selected: value === u }}
-          accessibilityLabel={u === 'km' ? 'Kilometres' : 'Miles'}
+          accessibilityLabel={u === "km" ? "Kilometres" : "Miles"}
           scaleTo={0.96}
           style={styles.unitBtn}
         >
-          <AppText variant="body" weight="semibold" color={value === u ? colors.onPrimary : colors.text}>
-            {u === 'km' ? tr('Km') : tr('Mi')}
+          <AppText
+            variant="body"
+            weight="semibold"
+            color={value === u ? colors.onPrimary : colors.text}
+          >
+            {u === "km" ? tr("Km") : tr("Mi")}
           </AppText>
         </PressableScale>
       ))}
@@ -509,8 +778,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     paddingHorizontal: 20,
     paddingBottom: 12,
@@ -519,8 +788,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     paddingHorizontal: 20,
@@ -535,11 +804,11 @@ const styles = StyleSheet.create({
   group: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -555,15 +824,15 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   unitGroup: {
     paddingHorizontal: 16,
@@ -571,17 +840,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   unitHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   unitSwitch: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 4,
   },
   unitPill: {
-    position: 'absolute',
+    position: "absolute",
     top: 4,
     bottom: 4,
     left: 4,
@@ -589,7 +858,7 @@ const styles = StyleSheet.create({
   },
   unitBtn: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 10,
   },
   footer: {

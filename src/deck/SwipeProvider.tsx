@@ -1,17 +1,33 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { profileDraftKey } from '../onboarding/OnboardingProvider';
-import type { ProfileDraft } from '../onboarding/types';
-import type { Profile, ProfileGender } from '../profiles/types';
-import { applyFilters, DEFAULT_FILTERS, withoutGold, type FilterResult, type Filters } from '../filters/filters';
-import { notify } from '../notify/notify';
-import { useWallet } from '../store/WalletProvider';
-import { PROFILES, profileById } from '../profiles/data';
-import { sessionRandom } from '../profiles/session';
-import { buildDeck } from './buildDeck';
-import { decideMatch, EMPTY_COUNTERS, type MatchCounters } from './matches';
-import { sortDeck, type SortKey } from './sort';
-import { tr } from '../i18n/i18n';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  applyFilters,
+  DEFAULT_FILTERS,
+  withoutGold,
+  type FilterResult,
+  type Filters,
+} from "../filters/filters";
+import { tr } from "../i18n/i18n";
+import { notify } from "../notify/notify";
+import { profileDraftKey } from "../onboarding/OnboardingProvider";
+import type { ProfileDraft } from "../onboarding/types";
+import { profileById, PROFILES } from "../profiles/data";
+import { sessionRandom } from "../profiles/session";
+import type { Profile, ProfileGender } from "../profiles/types";
+import { deckKey, savesPaused } from "../store/restart";
+import { useWallet } from "../store/WalletProvider";
+import { buildDeck } from "./buildDeck";
+import { decideMatch, EMPTY_COUNTERS, type MatchCounters } from "./matches";
+import { sortDeck, type SortKey } from "./sort";
 
 // Swipe state for one account, saved on the phone:
 // - decisions (like / pass / super like) for matches later;
@@ -21,11 +37,15 @@ import { tr } from '../i18n/i18n';
 // - your own profile (`me`, the onboarding answers): edited from the Profile tab with updateMe().
 // Mount it with key={userId}.
 
-export type SwipeAction = 'like' | 'pass' | 'superlike';
-export type Unmatch = { at: number; by: 'me' | 'them'; reason: string };
+export type SwipeAction = "like" | "pass" | "superlike";
+export type Unmatch = { at: number; by: "me" | "them"; reason: string };
 // Settings › Privacy › Who can see my profile
-export type Visibility = 'everyone' | 'liked' | 'hidden';
-export type Privacy = { visibility: Visibility; shareLink: boolean; blockedContacts: string[] };
+export type Visibility = "everyone" | "liked" | "hidden";
+export type Privacy = {
+  visibility: Visibility;
+  shareLink: boolean;
+  blockedContacts: string[];
+};
 type Swiped = { id: string; action: SwipeAction; counters: MatchCounters }; // counters = before this swipe
 
 type Saved = {
@@ -41,8 +61,21 @@ type Saved = {
   notificationsSeenAt: number; // last time the list was opened (ms)
 } & Privacy;
 
-const EMPTY: Saved = { decisions: {}, favorites: [], blocked: [], compliments: {}, matches: {}, matchCounters: EMPTY_COUNTERS, unmatched: {}, sort: 'recommended', filters: DEFAULT_FILTERS, notificationsSeenAt: 0, visibility: 'everyone', shareLink: true, blockedContacts: [] };
-const storageKey = (userId: string) => `yonder.deck.${userId}`;
+const EMPTY: Saved = {
+  decisions: {},
+  favorites: [],
+  blocked: [],
+  compliments: {},
+  matches: {},
+  matchCounters: EMPTY_COUNTERS,
+  unmatched: {},
+  sort: "recommended",
+  filters: DEFAULT_FILTERS,
+  notificationsSeenAt: 0,
+  visibility: "everyone",
+  shareLink: true,
+  blockedContacts: [],
+};
 
 type SwipeContextValue = {
   ready: boolean;
@@ -60,17 +93,23 @@ type SwipeContextValue = {
   block: (id: string, reason: string) => void;
   unblock: (id: string) => void; // Settings › Profiles I’ve blocked
   setPrivacy: (patch: Partial<Privacy>) => void;
-  unmatch: (id: string, reason: string, by?: 'me' | 'them') => void; // removes the match and hides the person for good
+  unmatch: (id: string, reason: string, by?: "me" | "them") => void; // removes the match and hides the person for good
   saveCompliment: (id: string, text: string) => void;
   setSort: (sort: SortKey) => void;
   setFilters: (filters: Filters) => void;
-  filterNotice: FilterResult['notice'];
+  filterNotice: FilterResult["notice"];
   markNotificationsSeen: () => void;
 };
 
 const SwipeContext = createContext<SwipeContextValue | null>(null);
 
-export function SwipeProvider({ userId, children }: { userId: string; children: ReactNode }) {
+export function SwipeProvider({
+  userId,
+  children,
+}: {
+  userId: string;
+  children: ReactNode;
+}) {
   const [ready, setReady] = useState(false);
   const [me, setMe] = useState<ProfileDraft>({});
   const [saved, setSaved] = useState<Saved>(EMPTY);
@@ -83,22 +122,29 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
   useEffect(() => {
     let alive = true;
     const t0 = Date.now();
-    Promise.all([AsyncStorage.getItem(profileDraftKey(userId)), AsyncStorage.getItem(storageKey(userId))])
+    Promise.all([
+      AsyncStorage.getItem(profileDraftKey(userId)),
+      AsyncStorage.getItem(deckKey(userId)),
+    ])
       .then(([draftRaw, savedRaw]) => {
         if (!alive) return;
         const draft = draftRaw ? (JSON.parse(draftRaw) as ProfileDraft) : {};
         const parsed = savedRaw ? (JSON.parse(savedRaw) as Partial<Saved>) : {};
-        const loaded: Saved = { ...EMPTY, ...parsed, filters: { ...DEFAULT_FILTERS, ...parsed.filters } };
+        const loaded: Saved = {
+          ...EMPTY,
+          ...parsed,
+          filters: { ...DEFAULT_FILTERS, ...parsed.filters },
+        };
         setMe(draft);
         setSaved(loaded);
         if (__DEV__) {
           console.log(
-            `[deck] loaded in ${Date.now() - t0}ms · tester=${draft.gender ?? 'unknown'} · ${Object.keys(loaded.decisions).length} decisions · ${loaded.favorites.length} favorites · ${loaded.blocked.length} blocked`,
+            `[deck] loaded in ${Date.now() - t0}ms · tester=${draft.gender ?? "unknown"} · ${Object.keys(loaded.decisions).length} decisions · ${loaded.favorites.length} favorites · ${loaded.blocked.length} blocked`,
           );
         }
       })
       .catch((e) => {
-        if (__DEV__) console.log('[deck] load failed', String(e));
+        if (__DEV__) console.log("[deck] load failed", String(e));
       })
       .finally(() => {
         if (alive) setReady(true);
@@ -109,47 +155,85 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
   }, [userId]);
 
   useEffect(() => {
-    if (!ready) return;
-    AsyncStorage.setItem(storageKey(userId), JSON.stringify(saved)).catch(() => {});
+    if (!ready || savesPaused()) return;
+    AsyncStorage.setItem(deckKey(userId), JSON.stringify(saved)).catch(
+      () => {},
+    );
   }, [saved, ready, userId]);
 
   // Your profile is saved only after you edit it (never overwritten with an empty draft).
   useEffect(() => {
     if (!ready || !meEdited.current) return;
-    AsyncStorage.setItem(profileDraftKey(userId), JSON.stringify(me)).catch((e) => {
-      if (__DEV__) console.log('[me] save failed', String(e));
-    });
+    AsyncStorage.setItem(profileDraftKey(userId), JSON.stringify(me)).catch(
+      (e) => {
+        if (__DEV__) console.log("[me] save failed", String(e));
+      },
+    );
   }, [me, ready, userId]);
 
   const updateMe = useCallback((patch: Partial<ProfileDraft>) => {
     meEdited.current = true;
     setMe((prev) => ({ ...prev, ...patch }));
-    if (__DEV__) console.log('[me] edit', JSON.stringify(patch));
+    if (__DEV__) console.log("[me] edit", JSON.stringify(patch));
   }, []);
 
-  const show: ProfileGender = me.gender === 'woman' ? 'male' : 'female';
+  const show: ProfileGender = me.gender === "woman" ? "male" : "female";
 
   // Matches are hidden too: before v0.15.0 a match from an earlier session came back in the deck.
   const hiddenIds = useMemo(
-    () => new Set([...sessionSwiped.map((s) => s.id), ...saved.blocked, ...Object.keys(saved.matches)]),
+    () =>
+      new Set([
+        ...sessionSwiped.map((s) => s.id),
+        ...saved.blocked,
+        ...Object.keys(saved.matches),
+      ]),
     [sessionSwiped, saved.blocked, saved.matches],
   );
   // Full session order → filters (rule 9.4) → hide swiped / blocked / matched → sort.
-  const pool = useMemo(() => (ready ? buildDeck(show, new Set(), round) : []), [ready, show, round]);
-  const activeFilters = useMemo(() => (wallet.gold ? saved.filters : withoutGold(saved.filters)), [wallet.gold, saved.filters]);
-  const filtered = useMemo(() => applyFilters(pool, activeFilters, show), [pool, activeFilters, show]);
+  const pool = useMemo(
+    () => (ready ? buildDeck(show, new Set(), round) : []),
+    [ready, show, round],
+  );
+  const activeFilters = useMemo(
+    () => (wallet.gold ? saved.filters : withoutGold(saved.filters)),
+    [wallet.gold, saved.filters],
+  );
+  const filtered = useMemo(
+    () => applyFilters(pool, activeFilters, show),
+    [pool, activeFilters, show],
+  );
   // "Likes you" (demo): 2 people at the start, +1 every 4 swipes (max 30). Never someone you
   // already swiped, matched or blocked. Liking one of them back is an instant match.
   // Privacy: "Only people I like" or "No one" → nobody new can like you.
   const swipeCount = Object.keys(saved.decisions).length;
   const likedYou = useMemo(() => {
-    if (!ready || saved.visibility !== 'everyone') return [];
+    if (!ready || saved.visibility !== "everyone") return [];
     const count = Math.min(30, 2 + Math.floor(swipeCount / 4));
-    return PROFILES.filter((p) => p.gender === show && !saved.decisions[p.id] && !saved.matches[p.id] && !saved.blocked.includes(p.id))
-      .sort((a, b) => sessionRandom(`${a.id}:likesyou`) - sessionRandom(`${b.id}:likesyou`))
+    return PROFILES.filter(
+      (p) =>
+        p.gender === show &&
+        !saved.decisions[p.id] &&
+        !saved.matches[p.id] &&
+        !saved.blocked.includes(p.id),
+    )
+      .sort(
+        (a, b) =>
+          sessionRandom(`${a.id}:likesyou`) - sessionRandom(`${b.id}:likesyou`),
+      )
       .slice(0, count);
-  }, [ready, show, swipeCount, saved.decisions, saved.matches, saved.blocked, saved.visibility]);
-  const likedYouIds = useMemo(() => new Set(likedYou.map((p) => p.id)), [likedYou]);
+  }, [
+    ready,
+    show,
+    swipeCount,
+    saved.decisions,
+    saved.matches,
+    saved.blocked,
+    saved.visibility,
+  ]);
+  const likedYouIds = useMemo(
+    () => new Set(likedYou.map((p) => p.id)),
+    [likedYou],
+  );
 
   const deck = useMemo(() => {
     const list = sortDeck(
@@ -157,18 +241,25 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
       saved.sort,
       me,
     );
-    if (lastTopId && list.length > 1 && list[0].id === lastTopId) [list[0], list[1]] = [list[1], list[0]];
+    if (lastTopId && list.length > 1 && list[0].id === lastTopId)
+      [list[0], list[1]] = [list[1], list[0]];
     return list;
   }, [filtered, hiddenIds, saved.sort, me, lastTopId]);
 
   const swipe = useCallback(
     (id: string, action: SwipeAction) => {
       const rules = decideMatch(saved.matchCounters, action);
-      const likedBack = action !== 'pass' && likedYouIds.has(id); // they already liked you
+      const likedBack = action !== "pass" && likedYouIds.has(id); // they already liked you
       // Hidden from everyone: nobody sees you, so nobody can match with you.
-      const matched = saved.visibility !== 'hidden' && (rules.matched || likedBack);
-      const next = matched ? { ...rules.next, swipesSinceMatch: 0 } : rules.next;
-      setSessionSwiped((prev) => [...prev, { id, action, counters: saved.matchCounters }]);
+      const matched =
+        saved.visibility !== "hidden" && (rules.matched || likedBack);
+      const next = matched
+        ? { ...rules.next, swipesSinceMatch: 0 }
+        : rules.next;
+      setSessionSwiped((prev) => [
+        ...prev,
+        { id, action, counters: saved.matchCounters },
+      ]);
       setLastTopId(null); // the reshuffle swap is only for the first card after Apply
       setSaved((prev) => ({
         ...prev,
@@ -178,14 +269,20 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
       }));
       if (__DEV__) {
         console.log(
-          `[deck] ${action} ${id}${matched ? (likedBack ? ' → MATCH (liked you)' : ' → MATCH') : ''} · swipes since match ${next.swipesSinceMatch} · super likes ${next.supersSinceMatch}`,
+          `[deck] ${action} ${id}${matched ? (likedBack ? " → MATCH (liked you)" : " → MATCH") : ""} · swipes since match ${next.swipesSinceMatch} · super likes ${next.supersSinceMatch}`,
         );
       }
       if (matched) {
         const p = profileById(id);
         if (p) {
           setTimeout(() => {
-            notify('matches', { title: tr('It’s a match! 💞'), body: tr('You and {name} like each other. Say hi!', { name: p.name }), url: `/chat/${id}` });
+            notify("matches", {
+              title: tr("It’s a match! 💞"),
+              body: tr("You and {name} like each other. Say hi!", {
+                name: p.name,
+              }),
+              url: `/chat/${id}`,
+            });
           }, 1500);
         }
       }
@@ -214,14 +311,22 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
     const p = fresh[fresh.length - 1];
     if (!p || !grew) return;
     const superLike = sessionRandom(`${p.id}:superliked`) < 0.3;
-    notify('likes', {
-      title: superLike ? tr('Someone super liked you ⭐') : tr('Someone new likes you ❤️'),
+    notify("likes", {
+      title: superLike
+        ? tr("Someone super liked you ⭐")
+        : tr("Someone new likes you ❤️"),
       body: wallet.gold
         ? superLike
-          ? tr('{name}, {age} super liked you. Like back to match.', { name: p.name, age: p.age })
-          : tr('{name}, {age} liked you. Like back to match.', { name: p.name, age: p.age })
-        : tr('Get Yonder Gold to see who it is.'),
-      url: '/likes',
+          ? tr("{name}, {age} super liked you. Like back to match.", {
+              name: p.name,
+              age: p.age,
+            })
+          : tr("{name}, {age} liked you. Like back to match.", {
+              name: p.name,
+              age: p.age,
+            })
+        : tr("Get Yonder Gold to see who it is."),
+      url: "/likes",
     });
   }, [ready, likedYou, wallet.gold]);
 
@@ -245,8 +350,8 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
   }, [sessionSwiped, show, saved.matches]);
 
   const rewindPassed = useCallback(() => {
-    const passed = sessionSwiped.filter((s) => s.action === 'pass').length;
-    setSessionSwiped((prev) => prev.filter((s) => s.action !== 'pass'));
+    const passed = sessionSwiped.filter((s) => s.action === "pass").length;
+    setSessionSwiped((prev) => prev.filter((s) => s.action !== "pass"));
     if (__DEV__) console.log(`[deck] rewind ${passed} passed profiles`);
     return passed;
   }, [sessionSwiped]);
@@ -256,7 +361,9 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
       const next = !saved.favorites.includes(id);
       setSaved((prev) => ({
         ...prev,
-        favorites: next ? [...prev.favorites, id] : prev.favorites.filter((f) => f !== id),
+        favorites: next
+          ? [...prev.favorites, id]
+          : prev.favorites.filter((f) => f !== id),
       }));
       if (__DEV__) console.log(`[deck] favorite ${id} → ${next}`);
       return next;
@@ -265,37 +372,55 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
   );
 
   const block = useCallback((id: string, reason: string) => {
-    setSaved((prev) => ({ ...prev, blocked: prev.blocked.includes(id) ? prev.blocked : [...prev.blocked, id] }));
+    setSaved((prev) => ({
+      ...prev,
+      blocked: prev.blocked.includes(id) ? prev.blocked : [...prev.blocked, id],
+    }));
     if (__DEV__) console.log(`[deck] blocked ${id} · ${reason}`);
   }, []);
 
   const unblock = useCallback((id: string) => {
-    setSaved((prev) => ({ ...prev, blocked: prev.blocked.filter((b) => b !== id) }));
+    setSaved((prev) => ({
+      ...prev,
+      blocked: prev.blocked.filter((b) => b !== id),
+    }));
     if (__DEV__) console.log(`[deck] unblocked ${id}`);
   }, []);
 
   const setPrivacy = useCallback((patch: Partial<Privacy>) => {
     setSaved((prev) => ({ ...prev, ...patch }));
-    if (__DEV__) console.log('[privacy]', JSON.stringify(patch));
+    if (__DEV__) console.log("[privacy]", JSON.stringify(patch));
   }, []);
 
-  const unmatch = useCallback((id: string, reason: string, by: 'me' | 'them' = 'me') => {
-    setSaved((prev) => {
-      const matches = { ...prev.matches };
-      delete matches[id];
-      return {
-        ...prev,
-        matches,
-        blocked: prev.blocked.includes(id) ? prev.blocked : [...prev.blocked, id],
-        unmatched: { ...prev.unmatched, [id]: { at: Date.now(), by, reason } },
-      };
-    });
-    if (__DEV__) console.log(`[deck] unmatched ${id} · by ${by} · ${reason}`);
-  }, []);
+  const unmatch = useCallback(
+    (id: string, reason: string, by: "me" | "them" = "me") => {
+      setSaved((prev) => {
+        const matches = { ...prev.matches };
+        delete matches[id];
+        return {
+          ...prev,
+          matches,
+          blocked: prev.blocked.includes(id)
+            ? prev.blocked
+            : [...prev.blocked, id],
+          unmatched: {
+            ...prev.unmatched,
+            [id]: { at: Date.now(), by, reason },
+          },
+        };
+      });
+      if (__DEV__) console.log(`[deck] unmatched ${id} · by ${by} · ${reason}`);
+    },
+    [],
+  );
 
   const saveCompliment = useCallback((id: string, text: string) => {
-    setSaved((prev) => ({ ...prev, compliments: { ...prev.compliments, [id]: text } }));
-    if (__DEV__) console.log(`[deck] compliment to ${id} (${text.length} chars)`);
+    setSaved((prev) => ({
+      ...prev,
+      compliments: { ...prev.compliments, [id]: text },
+    }));
+    if (__DEV__)
+      console.log(`[deck] compliment to ${id} (${text.length} chars)`);
   }, []);
 
   const setSort = useCallback((sort: SortKey) => {
@@ -309,7 +434,11 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
       setSaved((prev) => ({ ...prev, filters }));
       setLastTopId(topNow);
       setRound((r) => r + 1);
-      if (__DEV__) console.log('[filters] applied · deck reshuffled', JSON.stringify(filters));
+      if (__DEV__)
+        console.log(
+          "[filters] applied · deck reshuffled",
+          JSON.stringify(filters),
+        );
     },
     [topNow],
   );
@@ -371,11 +500,13 @@ export function SwipeProvider({ userId, children }: { userId: string; children: 
     ],
   );
 
-  return <SwipeContext.Provider value={value}>{children}</SwipeContext.Provider>;
+  return (
+    <SwipeContext.Provider value={value}>{children}</SwipeContext.Provider>
+  );
 }
 
 export function useSwipe() {
   const ctx = useContext(SwipeContext);
-  if (!ctx) throw new Error('useSwipe must be used inside SwipeProvider');
+  if (!ctx) throw new Error("useSwipe must be used inside SwipeProvider");
   return ctx;
 }
